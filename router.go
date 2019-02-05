@@ -57,8 +57,8 @@ func router() *web.Mux{
 	mux := web.New()
 
 	// TODO: Setup logging, panic recovery and tracing on the top level, we want it everywhere?
-	mux.NotFound(controllers.GetNotFound)
-	mux.Get("/", controllers.Index)
+	mux.Post("/api/register", controllers.Register)
+	mux.Post("/api/login", controllers.Login)
 
 	return mux
 }

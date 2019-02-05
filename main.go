@@ -16,6 +16,10 @@ import (
 /*
 TODO:
 
+0) Try to align the current code with the simplest code possible to make it run. Throw all the extra shit away or on the
+backburner/issues in github
+1) No need for extensive routing, that's all done in the FE already, a simple 404 maybe to an unknown path and then /api stuff
+
 1) Rewrite tests and log to make it simpler! Bonus: write tests for log, errors!
 Couple of functions:
 * Write an error message - it should save the stacktrace where it was added, and pass it along to the final place where we log it

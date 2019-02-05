@@ -1,0 +1,1 @@
+1) Not found for every path? So then if you do a POST request to /bla you'd get a JSON with {"error": "not found"} or something. Or maybe just block every random request like that too?
