@@ -1,22 +1,31 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+
+	"hobee-be/pkg/db"
 )
 
 const (
-	emailMaxLenght = 255
+	emailMaxLenght    = 255
 	passwordMinLength = 8
 	passwordMaxLenght = 64
 )
 
 type registerRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
 	InvitationCode string `json:"invitationCode"`
+}
+
+type invitationCode struct {
+	Id   int
+	Code string
+	Max  int
 }
 
 func (rr *registerRequest) validate() error {
@@ -67,7 +76,53 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check email collision
-	// check if invitation code exists and if we didn't reach a limit on invitation codes
+	// Check if email already taken
+	var exists bool
+	q := `SELECT 1 FROM users WHERE email = $1;`
+	err := db.Instance.QueryRowContext(ctx, q, rr.Email).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		// Log.Error
+		fmt.Println("Email collision error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		err := errors.New("Email already taken")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Check if invitationcode exists
+	var id, max int
+	q = `SELECT id, max FROM invitationcodes WHERE code = $1;`
+	err = db.Instance.QueryRowContext(ctx, q, rr.InvitationCode).Scan(&id, &max)
+	if err != nil && err != sql.ErrNoRows {
+		// Log.Error
+		fmt.Println("Invitation collision error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if max == 0 {
+		err := errors.New("Invitation code not found")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Check if invitationcode limit reached
+	var usersWithInvitationCount int
+	q = `SELECT COUNT(*) FROM users WHERE invitationcodeid = $1;`
+	err = db.Instance.QueryRowContext(ctx, q, id).Scan(&usersWithInvitationCount)
+	if err != nil && err != sql.ErrNoRows {
+		// Log.Error
+		fmt.Println("Invitation collision error:", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if usersWithInvitationCount >= max {
+		err := errors.New("Invitation code limit reached")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// Set password
 	// add a cookie in the response!
 }

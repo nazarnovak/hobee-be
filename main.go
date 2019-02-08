@@ -8,6 +8,7 @@ import (
 	"hobee-be/config"
 	"hobee-be/models"
 	//"hobee-be/pkg/herrors"
+	"hobee-be/pkg/db"
 	"hobee-be/pkg/log"
 	"hobee-be/pkg/matcher"
 	"hobee-be/pkg/rooms"
@@ -39,17 +40,20 @@ who are searching, any benefit of that?
 change anything?
 
 */
-const failInitializing = "Fail initializing"
-
 func main() {
 	c, err := config.Load()
 	if err != nil {
-		fmt.Printf("%s: %s", failInitializing, err)
+		fmt.Printf("Config init fail: %s", err.Error())
 		return
 	}
 
 	if err := log.Init(c.Log.Out); err != nil {
-		fmt.Printf("%s: %s", failInitializing, err)
+		fmt.Printf("Config init fail: %s", err.Error())
+		return
+	}
+
+	if err := db.Init(c.DB.Connection); err != nil {
+		fmt.Printf("DB init fail: %s", err)
 		return
 	}
 
@@ -60,7 +64,10 @@ func main() {
 
 	rooms.Init(userPool)
 
+	fmt.Println("Running")
+
 	s := NewServer()
 	s.Start(c.Port)
+
 	//defer s.Stop()
 }

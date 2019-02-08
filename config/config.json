@@ -3,11 +3,7 @@
   "log": {
     "out": "stderr"
   },
-  "-db": {
-      "host": "localhost",
-      "port": "5432",
-      "user": "postgres",
-      "password": "1",
-      "name": "hobee"
+  "db": {
+      "connection": "postgres://nazar@localhost/hobee?sslmode=disable"
   }
 }

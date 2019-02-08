@@ -10,11 +10,7 @@ type Config struct {
 }
 
 type DB struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
+	Connection string `json:"connection"`
 }
 
 type Log struct {
