@@ -67,7 +67,7 @@ func main() {
 	fmt.Println("Running")
 
 	s := NewServer()
-	s.Start(c.Port)
+	s.Start(c.Secret, c.Port)
 
 	//defer s.Stop()
 }
