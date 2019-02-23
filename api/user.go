@@ -4,45 +4,49 @@ import (
 	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
+
+	"hobee-be/pkg/herrors"
+	"hobee-be/pkg/log"
 )
 
-func loggedInUserId(r *http.Request, secret string) string {
+func LoggedInUserId(r *http.Request, secret string) string {
+	ctx := r.Context()
+
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	}
 
 	cookie, _ := r.Cookie(sessionCookieName)
 	if cookie == nil {
-		// Log.Error
-		println("loggedInUserId 1")
 		return ""
 	}
 
 	tkn, err := jwt.Parse(cookie.Value, keyFunc)
 	if err != nil {
-		// Log.Error
-		println("loggedInUserId 2:", err.Error())
+		log.Critical(ctx, herrors.Wrap(err))
 		return ""
 	}
 
 	claims, ok := tkn.Claims.(jwt.MapClaims)
 	if !ok {
-		// Log.Error
-		println("loggedInUserId 3")
+		log.Critical(ctx, herrors.New("Could not assert token claims as jwt.MapClaims"))
 		return ""
 	}
 
 	userid, ok := claims["userid"]
 	if !ok {
-		// Log.Error
-		println("loggedInUserId 4")
+		log.Critical(ctx, herrors.New("Could not find userid key in claims"))
 		return ""
 	}
 
 	useridStr, ok := userid.(string)
 	if !ok {
-		// Log.Error
-		println("loggedInUserId 5")
+		log.Critical(ctx, herrors.New("Could not assert userid as a string"))
+		return ""
+	}
+
+	// 0 is written in the claims when you log out
+	if useridStr == "0" {
 		return ""
 	}
 
@@ -51,13 +55,11 @@ func loggedInUserId(r *http.Request, secret string) string {
 
 func User(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userIdStr := loggedInUserId(r, secret)
+		ctx := r.Context()
 
+		userIdStr := LoggedInUserId(r, secret)
 		if userIdStr == "" {
-			if err := responseJSONError(w, "Not authorized", http.StatusBadRequest); err != nil {
-				// Log.Error
-				println("user 1:", err.Error())
-			}
+			ResponseJSONError(ctx, w, "Not authorized", http.StatusBadRequest)
 		}
 
 		s := struct {
@@ -66,9 +68,6 @@ func User(secret string) func(w http.ResponseWriter, r *http.Request) {
 			UserID: userIdStr,
 		}
 
-		if err := responseJSONObject(w, s); err != nil {
-			// Log.Error
-			println("user 2:", err.Error())
-		}
+		responseJSONObject(ctx, w, s)
 	}
 }

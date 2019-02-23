@@ -64,7 +64,7 @@ func main() {
 
 	rooms.Init(userPool)
 
-	fmt.Println("Running")
+	fmt.Println("Running on port", c.Port)
 
 	s := NewServer()
 	s.Start(c.Secret, c.Port)

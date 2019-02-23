@@ -15,13 +15,15 @@ import (
 const (
 	console = "stderr"
 
-	levelError = "ERROR"
-	levelInfo  = "INFO"
+	levelCritical = "CRITICAL"
+	levelError    = "ERROR"
+	levelWarning  = "WARNING"
+	levelInfo     = "INFO"
 )
 
 var (
 	canLogTo  = []string{console}
-	levels    = []string{levelError, levelInfo}
+	levels    = []string{levelCritical, levelError, levelWarning, levelInfo}
 	logTo     io.Writer
 	logOutput = ""
 )
@@ -38,7 +40,7 @@ func Init(to string) error {
 	if to == "" {
 		return herrors.New("Specify where to log errors")
 	}
-// TODO: What if you take this off? Still good logs?
+	// TODO: What if you take this off? Still good logs?
 	// Better log messages for debugging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -79,7 +81,7 @@ func logKeyVals(err error) {
 	out := []string{}
 
 	for k, v := range keyVals {
-		out = append(out, fmt.Sprintf("%#v: %#v", k, v))
+		out = append(out, fmt.Sprintf("%#v: %+v", k, v))
 	}
 
 	fmt.Println(strings.Join(out, ", "))
@@ -103,10 +105,28 @@ func logError(err error) {
 	fmt.Printf("")
 }
 
+func Critical(ctx context.Context, err error) {
+	switch logOutput {
+	case console:
+		logConsoleError(levelCritical, err)
+		logKeyVals(err)
+		logPrettyStack(err)
+	}
+}
+
 func Error(ctx context.Context, err error) {
 	switch logOutput {
 	case console:
 		logConsoleError(levelError, err)
+		logKeyVals(err)
+		logPrettyStack(err)
+	}
+}
+
+func Warning(ctx context.Context, err error) {
+	switch logOutput {
+	case console:
+		logConsoleError(levelWarning, err)
 		logKeyVals(err)
 		logPrettyStack(err)
 	}

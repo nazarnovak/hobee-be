@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"hobee-be/controllers"
 	"hobee-be/pkg/herrors"
 	"net/http"
 
@@ -42,6 +43,7 @@ func HobeeHandler(hf handlerFunc) httpServer {
 
 func (s *Server) Start(secret, port string) {
 	srv := &http.Server{
+		Addr: port,
 		Handler: router(secret),
 	}
 
@@ -60,6 +62,14 @@ func router(secret string) *web.Mux{
 	mux.Post("/api/register", api.Register(secret))
 	mux.Get("/api/user", api.User(secret))
 	mux.Post("/api/login", api.Login(secret))
+
+	mux.Get("/test/login", api.TestLogin(secret))
+	mux.Get("/test/logout", api.TestLogout(secret))
+
+	mux.Get("/ws", controllers.WS(secret))
+
+	htmlFilesLocation := "/Users/nazar/n/src/hobee-be/"
+	mux.Handle("/*", http.FileServer(http.Dir(htmlFilesLocation)))
 
 	return mux
 }

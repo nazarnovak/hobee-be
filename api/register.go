@@ -1,17 +1,23 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strconv"
 
+	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
+
 	"hobee-be/pkg/db"
+	"hobee-be/pkg/herrors"
+	"hobee-be/pkg/log"
 )
 
 const (
@@ -73,41 +79,38 @@ type jsonResponse struct {
 	Msg   string `json:"msg"`
 }
 
-func responseJSONError(w http.ResponseWriter, msg string, status int) error {
+func ResponseJSONError(ctx context.Context, w http.ResponseWriter, msg string, status int) {
 	jr := jsonResponse{Error: true, Msg: msg}
 
 	b, err := json.Marshal(jr)
 	if err != nil {
-		return err
+		log.Critical(ctx, err)
+		return
 	}
 
 	http.Error(w, string(b), status)
-
-	return nil
 }
 
-func responseJSONSuccess(w http.ResponseWriter) error {
+func responseJSONSuccess(ctx context.Context, w http.ResponseWriter) {
 	jr := jsonResponse{Error: false, Msg: "Success"}
 
 	b, err := json.Marshal(jr)
 	if err != nil {
-		return err
+		log.Critical(ctx, err)
+		return
 	}
 
 	http.Error(w, string(b), http.StatusOK)
-
-	return nil
 }
 
-func responseJSONObject(w http.ResponseWriter, obj interface{}) error {
+func responseJSONObject(ctx context.Context, w http.ResponseWriter, obj interface{}) {
 	b, err := json.Marshal(obj)
 	if err != nil {
-		return err
+		log.Critical(ctx, err)
+		return
 	}
 
 	http.Error(w, string(b), http.StatusOK)
-
-	return nil
 }
 
 func Register(secret string) func(w http.ResponseWriter, r *http.Request) {
@@ -115,58 +118,52 @@ func Register(secret string) func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		defer r.Body.Close()
 
-		// TODO: Respond with codes to FE? So if you're already logged in I can return code 1 and then map that on
-		// the FE? And if it's 1 I can redirect somewhere else
-		if userIdStr := loggedInUserId(r, secret); userIdStr != "" {
-			println("register -1")
-			if err := responseJSONError(w, "Already logged in", http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 0")
-			}
+		if r == nil {
+			log.Critical(ctx, herrors.New("request is nil"))
+			return
+		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Critical(ctx, herrors.New("Could not ReadAll from Body"))
+			return
+		}
+
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+		if userIdStr := LoggedInUserId(r, secret); userIdStr != "" {
+			log.Info(ctx, herrors.New("Already logged in"))
+			ResponseJSONError(ctx, w, "Already logged in", http.StatusInternalServerError)
 			return
 		}
 
 		rr := &registerRequest{}
 		if err := json.NewDecoder(r.Body).Decode(rr); err != nil {
-			// Log.Error
-			println("register 1:", err.Error())
-			if err = responseJSONError(w, "Invalid payload", http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 2:", err.Error())
-			}
+			log.Error(ctx, herrors.New("Error decoding incoming request", "req", string(body)))
+			ResponseJSONError(ctx, w, "Invalid payload", http.StatusInternalServerError)
 			return
 		}
 
 		// Nothing to sanitize?
 		// Validate
 		if err := rr.validate(); err != nil {
-			// Log.Error
-			println("register 3:", err.Error())
-			if err = responseJSONError(w, err.Error(), http.StatusBadRequest); err != nil {
-				// Log.Error
-				println("register 4:", err.Error())
-			}
+			log.Info(ctx, herrors.New("Invalid register data"))
+			ResponseJSONError(ctx, w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// Check if email already taken
 		var exists bool
 		q := `SELECT 1 FROM users WHERE email = $1;`
-		err := db.Instance.QueryRowContext(ctx, q, rr.Email).Scan(&exists)
+		err = db.Instance.QueryRowContext(ctx, q, rr.Email).Scan(&exists)
 		if err != nil && err != sql.ErrNoRows {
-			// Log.Error
-			println("register 5:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 6:", err.Error())
-			}
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 		if exists {
-			if err = responseJSONError(w, "Email already taken", http.StatusBadRequest); err != nil {
-				// Log.Error
-				println("register 7:", err.Error())
-			}
+			log.Info(ctx, herrors.New("Email already taken", "email", rr.Email))
+			ResponseJSONError(ctx, w, "Email already taken", http.StatusBadRequest)
 			return
 		}
 
@@ -175,19 +172,13 @@ func Register(secret string) func(w http.ResponseWriter, r *http.Request) {
 		q = `SELECT id, max FROM invitationcodes WHERE code = $1;`
 		err = db.Instance.QueryRowContext(ctx, q, rr.InvitationCode).Scan(&invitationCodeId, &max)
 		if err != nil && err != sql.ErrNoRows {
-			// Log.Error
-			println("register 8:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 9:", err.Error())
-			}
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
-		if max == 0 {
-			if err = responseJSONError(w, "Invitation code not found", http.StatusBadRequest); err != nil {
-				// Log.Error
-				println("register 10:", err.Error())
-			}
+		if invitationCodeId == 0 {
+			log.Warning(ctx, herrors.New("Invitation code not found", "code", rr.InvitationCode))
+			ResponseJSONError(ctx, w, "Invitation code not found", http.StatusBadRequest)
 			return
 		}
 
@@ -196,53 +187,34 @@ func Register(secret string) func(w http.ResponseWriter, r *http.Request) {
 		q = `SELECT COUNT(*) FROM users WHERE invitationcodeid = $1;`
 		err = db.Instance.QueryRowContext(ctx, q, invitationCodeId).Scan(&usersWithInvitationCount)
 		if err != nil && err != sql.ErrNoRows {
-			// Log.Error
-			println("register 11:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 12:", err.Error())
-			}
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 		if usersWithInvitationCount >= max {
-			if err = responseJSONError(w, "Invitation code limit reached", http.StatusForbidden); err != nil {
-				// Log.Error
-				println("register 13:", err.Error())
-			}
+			log.Warning(ctx, herrors.New("Invitation code limit reached"))
+			ResponseJSONError(ctx, w, "Invitation code limit reached", http.StatusForbidden)
 			return
 		}
 
 		byteHashedPassword, err := bcrypt.GenerateFromPassword([]byte(rr.Password), bcrypt.DefaultCost)
 		if err != nil {
-			// Log.Error
-			println("register 13.1:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 13.2:", err.Error())
-			}
+			log.Error(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 
 		var userid int64
 		q = `INSERT INTO users(id, email, password, invitationcodeid, created) VALUES(DEFAULT, $1, $2, $3, DEFAULT) returning id;`
-		if err := db.Instance.QueryRowContext(ctx, q, rr.Email, byteHashedPassword, invitationCodeId).Scan(&userid);
-		err != nil {
-			// Log.Error
-			println("register 14:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 15:", err.Error())
-			}
+		if err := db.Instance.QueryRowContext(ctx, q, rr.Email, byteHashedPassword, invitationCodeId).Scan(&userid); err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 
 		if userid == 0 {
-			// Log.Error
-			println("register 16")
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 17:", err.Error())
-			}
+			log.Critical(ctx, herrors.New("Could not insert a new user", "email", rr.Email))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 
@@ -250,30 +222,24 @@ func Register(secret string) func(w http.ResponseWriter, r *http.Request) {
 		claims := jwt.MapClaims{
 			"userid": strconv.FormatInt(userid, 10),
 		}
+
 		tkn := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		signed, err := tkn.SignedString([]byte(secret))
 		if err != nil {
-			// Log.Error
-			println("register 18:", err.Error())
-			if err = responseJSONError(w, internalServerError, http.StatusInternalServerError); err != nil {
-				// Log.Error
-				println("register 19:", err.Error())
-			}
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 
 		c := &http.Cookie{
-			Name: sessionCookieName,
-			Value: signed,
-			MaxAge: 600,
+			Path:   "/",
+			Name:   sessionCookieName,
+			Value:  signed,
+			MaxAge: sessionTimeInSeconds,
 		}
 
 		http.SetCookie(w, c)
 
-		if err := responseJSONSuccess(w); err != nil {
-			// Log.Error
-			println("register 20:", err.Error())
-			return
-		}
+		responseJSONSuccess(ctx, w)
 	}
 }
