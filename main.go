@@ -1,21 +1,18 @@
 package main
 
 import (
-	//"context"
 	"fmt"
-	//"net/http"
+	"hobee-be/pkg/socket"
 
 	"hobee-be/config"
-	"hobee-be/models"
-	//"hobee-be/pkg/herrors"
 	"hobee-be/pkg/db"
 	"hobee-be/pkg/log"
-	"hobee-be/pkg/matcher"
-	"hobee-be/pkg/rooms"
 )
 
 /*
 TODO:
+
+BIIIIITCH I HAS A CHAT!
 
 0) Try to align the current code with the simplest code possible to make it run. Throw all the extra shit away or on the
 backburner/issues in github
@@ -57,12 +54,11 @@ func main() {
 		return
 	}
 
-	userPool := make(chan [2]*models.WSUser)
+	socketsPool := make(chan [2]*socket.Socket)
 
-	m := matcher.New()
-	go m.Run(userPool)
+	go socket.Matcher(socketsPool)
 
-	rooms.Init(userPool)
+	socket.Rooms(socketsPool)
 
 	fmt.Println("Running on port", c.Port)
 

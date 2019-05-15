@@ -6,5 +6,5 @@
   "db": {
       "connection": "postgres://nazar@localhost/hobee?sslmode=disable"
   },
-  "secret": "supersecret"
+  "secret": "supersecret1"
 }

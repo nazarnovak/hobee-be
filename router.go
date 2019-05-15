@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"hobee-be/controllers"
-	"hobee-be/pkg/herrors"
 	"net/http"
 
+	"github.com/rs/cors"
 	"github.com/zenazn/goji/web"
 
 	"hobee-be/api"
 	"hobee-be/pkg/log"
+	"hobee-be/pkg/herrors"
 )
 
 type Server struct {}
@@ -59,17 +59,36 @@ func router(secret string) *web.Mux{
 	mux := web.New()
 
 	// TODO: Setup logging, panic recovery and tracing on the top level, we want it everywhere?
-	mux.Post("/api/register", api.Register(secret))
-	mux.Get("/api/user", api.User(secret))
-	mux.Post("/api/login", api.Login(secret))
+	//mux.Post("/api/register", api.Register(secret))
+	//mux.Get("/api/user", api.User(secret))
+	//mux.Post("/api/login", api.Login(secret))
 
+mux.Use(getCorsHandler())
 	mux.Get("/test/login", api.TestLogin(secret))
 	mux.Get("/test/logout", api.TestLogout(secret))
 
-	mux.Get("/ws", controllers.WS(secret))
+mux.Get("/api/identify", api.Identify(secret))
+mux.Get("/got", api.GOT(secret))
+	//mux.Get("/ws", controllers.WS(secret))
 
 	htmlFilesLocation := "/Users/nazar/n/src/hobee-be/"
 	mux.Handle("/*", http.FileServer(http.Dir(htmlFilesLocation)))
 
 	return mux
+}
+
+func getCorsHandler() func(http.Handler) http.Handler {
+	allowedOrigins := []string{}
+// TODO: Add mode dev + mode prod here to separate sites
+	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedHeaders:   []string{"Accept", "Authorization", "Cache-Control", "Content-Type", "Origin", "User-Agent", "Viewport", "X-Requested-With"},
+		MaxAge:           1728000,
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET"},
+	})
+
+	return c.Handler
 }

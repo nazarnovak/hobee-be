@@ -1,73 +1,112 @@
 package api
 
 import (
+	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"net/http"
 
-	"github.com/dgrijalva/jwt-go"
-
-	"hobee-be/pkg/herrors"
+	"hobee-be/pkg/herrors2"
 	"hobee-be/pkg/log"
 )
 
-func LoggedInUserId(r *http.Request, secret string) string {
-	ctx := r.Context()
+type Response struct {
+	Identified bool `json:"identified"`
+}
 
+func isLoggedIn(r *http.Request, secret string) (bool, error) {
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	}
 
 	cookie, _ := r.Cookie(sessionCookieName)
 	if cookie == nil {
-		return ""
+		return false, nil
 	}
 
 	tkn, err := jwt.Parse(cookie.Value, keyFunc)
 	if err != nil {
-		log.Critical(ctx, herrors.Wrap(err))
-		return ""
+		return false, herrors.Wrap(err)
 	}
 
 	claims, ok := tkn.Claims.(jwt.MapClaims)
 	if !ok {
-		log.Critical(ctx, herrors.New("Could not assert token claims as jwt.MapClaims"))
-		return ""
+		return false, herrors.New("Could not assert token claims as jwt.MapClaims")
 	}
 
-	userid, ok := claims["userid"]
+	userAgent, ok := claims["user-agent"]
 	if !ok {
-		log.Critical(ctx, herrors.New("Could not find userid key in claims"))
-		return ""
+		return false, herrors.New("Could not find user-agent in claims")
 	}
 
-	useridStr, ok := userid.(string)
+	userAgentStr, ok := userAgent.(string)
 	if !ok {
-		log.Critical(ctx, herrors.New("Could not assert userid as a string"))
-		return ""
+		return false, herrors.New("Could not assert user-agent as a string")
 	}
 
-	// 0 is written in the claims when you log out
-	if useridStr == "0" {
-		return ""
+	ip, ok := claims["ip"]
+	if !ok {
+		return false, herrors.New("Could not find ip in claims")
 	}
 
-	return useridStr
+	ipStr, ok := ip.(string)
+	if !ok {
+		return false, herrors.New("Could not assert ip as a string")
+	}
+
+	if userAgentStr == "" {
+		return false, herrors.New("User-agent claim can not be empty")
+	}
+
+	if ipStr == "" {
+		return false, herrors.New("IP claim can not be empty")
+	}
+
+	return true, nil
 }
 
-func User(secret string) func(w http.ResponseWriter, r *http.Request) {
+// Identify checks if the request contains a logged in cookie or we need to set one
+func Identify(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		userIdStr := LoggedInUserId(r, secret)
-		if userIdStr == "" {
-			ResponseJSONError(ctx, w, "Not authorized", http.StatusBadRequest)
+		loggedIn, err := isLoggedIn(r, secret)
+		if err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			return
 		}
 
-		s := struct {
-			UserID string `json:"userid"`
-		}{
-			UserID: userIdStr,
+		if loggedIn {
+			responseJSONSuccess(ctx, w)
+			return
 		}
 
-		responseJSONObject(ctx, w, s)
+		// i is a random thing I put into url query to make the request unique for easier testing
+		i := r.URL.Query().Get("i")
+
+		ip := fmt.Sprintf("%s.%s", r.RemoteAddr, i)
+		// JWT + cookie
+		claims := jwt.MapClaims{
+			"ip": ip,
+			"user-agent": r.UserAgent(),
+		}
+
+		tkn := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		signed, err := tkn.SignedString([]byte(secret))
+		if err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			return
+		}
+
+		c := &http.Cookie{
+			Path:   "/",
+			Name:   sessionCookieName,
+			Value:  signed,
+			MaxAge: sessionTimeInSeconds,
+		}
+
+		http.SetCookie(w, c)
+		responseJSONSuccess(ctx, w)
 	}
 }
