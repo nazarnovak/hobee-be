@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"hobee-be/pkg/socket"
 	"hobee-be/config"
-	"hobee-be/pkg/db"
 	"hobee-be/pkg/log"
+	"hobee-be/pkg/socket"
 )
 
 /*
@@ -50,10 +49,10 @@ func main() {
 		return
 	}
 
-	if err := db.Init(c.DB.Connection); err != nil {
-		fmt.Printf("DB init fail: %s", err)
-		return
-	}
+	//if err := db.Init(c.DB.Connection); err != nil {
+	//	fmt.Printf("DB init fail: %s", err)
+	//	return
+	//}
 
 	socketsPool := make(chan [2]*socket.Socket)
 
@@ -62,6 +61,8 @@ func main() {
 	socket.Rooms(socketsPool)
 
 	port := os.Getenv("PORT")
+port = ":" + port
+//port = ":8080"
 // TODO: Handle 8080 locally
 	if port == "" {
 		fmt.Println(("$PORT must be set"))
