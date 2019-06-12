@@ -75,7 +75,7 @@ mux.Get("/api/identify", api.Identify(secret))
 mux.Get("/api/got", api.GOT(secret))
 	//mux.Get("/ws", controllers.WS(secret))
 
-	compiledFELocation := "/Users/nazar/n/src/hobee-be/build/"
+	compiledFELocation := "build/"
 // TODO: Figure out relative path to /build so it works on heroku prod
 // Check if the files I have in the folder and if it matches - serve it, otherwise default to index.html
 mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
