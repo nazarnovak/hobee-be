@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"hobee-be/pkg/socket"
+	"os"
 
+	"hobee-be/pkg/socket"
 	"hobee-be/config"
 	"hobee-be/pkg/db"
 	"hobee-be/pkg/log"
@@ -60,10 +61,17 @@ func main() {
 
 	socket.Rooms(socketsPool)
 
-	fmt.Println("Running on port", c.Port)
+	port := os.Getenv("PORT")
+// TODO: Handle 8080 locally
+	if port == "" {
+		fmt.Println(("$PORT must be set"))
+		return
+	}
+
+	fmt.Println("Running on port", port)
 
 	s := NewServer()
-	s.Start(c.Secret, c.Port)
+	s.Start(c.Secret, port)
 
 	//defer s.Stop()
 }

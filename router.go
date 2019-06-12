@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/rs/cors"
 	"github.com/zenazn/goji/web"
 
 	"hobee-be/api"
-	"hobee-be/pkg/log"
 	"hobee-be/pkg/herrors"
+	"hobee-be/pkg/log"
 )
 
 type Server struct {}
@@ -55,10 +54,6 @@ func (s *Server) Start(secret, port string) {
 	}
 }
 
-func NotFound(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "/Users/nazar/n/src/hobee-be/build/index.html")
-}
-
 func router(secret string) *web.Mux{
 	mux := web.New()
 
@@ -67,7 +62,7 @@ func router(secret string) *web.Mux{
 	//mux.Get("/api/user", api.User(secret))
 	//mux.Post("/api/login", api.Login(secret))
 
-mux.Use(getCorsHandler())
+//mux.Use(getCorsHandler())
 	mux.Get("/test/login", api.TestLogin(secret))
 	mux.Get("/test/logout", api.TestLogout(secret))
 
@@ -87,20 +82,20 @@ mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
 	return mux
 }
 
-func getCorsHandler() func(http.Handler) http.Handler {
-	allowedOrigins := []string{}
-// TODO: Add mode dev + mode prod here to separate sites
-	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
-// External IP
-allowedOrigins = append(allowedOrigins, "http://84.219.232.19:3000")
-
-	c := cors.New(cors.Options{
-		AllowedOrigins:   allowedOrigins,
-		AllowedHeaders:   []string{"Accept", "Authorization", "Cache-Control", "Content-Type", "Origin", "User-Agent", "Viewport", "X-Requested-With"},
-		MaxAge:           1728000,
-		AllowCredentials: true,
-		AllowedMethods:   []string{"GET"},
-	})
-
-	return c.Handler
-}
+//func getCorsHandler() func(http.Handler) http.Handler {
+//	allowedOrigins := []string{}
+//// TODO: Add mode dev + mode prod here to separate sites
+//	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+//// External IP
+//allowedOrigins = append(allowedOrigins, "http://84.219.232.19:3000")
+//
+//	c := cors.New(cors.Options{
+//		AllowedOrigins:   allowedOrigins,
+//		AllowedHeaders:   []string{"Accept", "Authorization", "Cache-Control", "Content-Type", "Origin", "User-Agent", "Viewport", "X-Requested-With"},
+//		MaxAge:           1728000,
+//		AllowCredentials: true,
+//		AllowedMethods:   []string{"GET"},
+//	})
+//
+//	return c.Handler
+//}
