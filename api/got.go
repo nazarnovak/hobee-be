@@ -45,12 +45,8 @@ func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			log.Critical(ctx, herrors.Wrap(err))
-			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-			return
-		}
+		uuid := uuid.NewV4()
+
 fmt.Println("New socket connected at:", time.Now().UTC().String())
 		s := socket.New(uuid, c)
 // Creates a new socket with pkg/socket

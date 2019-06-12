@@ -94,11 +94,7 @@ fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 }
 
 func getUniqueRoomID() (uuid.UUID, error) {
-	u, err := uuid.NewV4()
-
-	if err != nil {
-		return uuid.UUID{}, herrors.Wrap(err)
-	}
+	u := uuid.NewV4()
 
 	if _, ok := rooms[u]; !ok {
 		return u, nil
