@@ -55,6 +55,10 @@ func (s *Server) Start(secret, port string) {
 	}
 }
 
+func NotFound(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "/Users/nazar/n/src/hobee-be/build/index.html")
+}
+
 func router(secret string) *web.Mux{
 	mux := web.New()
 
@@ -68,11 +72,17 @@ mux.Use(getCorsHandler())
 	mux.Get("/test/logout", api.TestLogout(secret))
 
 mux.Get("/api/identify", api.Identify(secret))
-mux.Get("/got", api.GOT(secret))
+mux.Get("/api/got", api.GOT(secret))
 	//mux.Get("/ws", controllers.WS(secret))
 
-	htmlFilesLocation := "/Users/nazar/n/src/hobee-be/"
-	mux.Handle("/*", http.FileServer(http.Dir(htmlFilesLocation)))
+	compiledFELocation := "/Users/nazar/n/src/hobee-be/build/"
+// TODO: Figure out relative path to /build so it works on heroku prod
+// Check if the files I have in the folder and if it matches - serve it, otherwise default to index.html
+mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
+    http.ServeFile(w, r, compiledFELocation + "index.html")
+})
+
+	mux.Handle("/*", http.FileServer(http.Dir(compiledFELocation)))
 
 	return mux
 }
@@ -81,6 +91,8 @@ func getCorsHandler() func(http.Handler) http.Handler {
 	allowedOrigins := []string{}
 // TODO: Add mode dev + mode prod here to separate sites
 	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+// External IP
+allowedOrigins = append(allowedOrigins, "http://84.219.232.19:3000")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   allowedOrigins,

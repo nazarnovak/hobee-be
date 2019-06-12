@@ -33,7 +33,7 @@ func getMatchingSockets(sp chan<- [2]*Socket) {
 	if len(sockets) < 2 {
 		return
 	}
-println("Here")
+fmt.Println("Matching 2 sockets")
 	sp <- [2]*Socket{sockets[0], sockets[1]}
 
 	searchRemove(sockets[1])

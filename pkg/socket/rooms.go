@@ -24,12 +24,9 @@ type Room struct {
 
 type Broadcast struct {
 	Socket *Socket
+	Type   MessageType
 	Text   []byte
 }
-
-const (
-	roomIDLength = 15
-)
 
 var (
 	letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -45,7 +42,7 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
-func Rooms(socketsPool <-chan [2]*Socket) {
+func Rooms(matchedSockets <-chan [2]*Socket) {
 	ctx := context.Background()
 
 	rand.Seed(time.Now().UnixNano())
@@ -53,7 +50,7 @@ func Rooms(socketsPool <-chan [2]*Socket) {
 	go func() {
 		for {
 			select {
-			case sockets := <-socketsPool:
+			case sockets := <-matchedSockets:
 				roomID, err := getUniqueRoomID()
 				if err != nil {
 					log.Critical(ctx, herrors.Wrap(err))
@@ -65,7 +62,7 @@ func Rooms(socketsPool <-chan [2]*Socket) {
 				bc := make(chan Broadcast)
 
 				sockets[0].Broadcast, sockets[1].Broadcast = bc, bc
-
+				// Should roomID be also added to sockets for reference when they close connection so you need to stop room from existing?
 				room := &Room{
 					ID:        roomID,
 					Messages:  []message.Message{},
@@ -77,7 +74,7 @@ func Rooms(socketsPool <-chan [2]*Socket) {
 
 				mutex.Unlock()
 
-				fmt.Printf("Got 2 sockets in room: %s\n", roomID)
+fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
 				msg := Message{MessageTypeSystem, SystemConnected}
 				o, err := json.Marshal(msg)
@@ -117,23 +114,48 @@ func (r *Room) Broadcaster() {
 		select {
 		case b := <-r.Broadcast:
 			for _, socket := range r.Sockets {
-				t := MessageTypeOwn
-				if b.Socket != socket {
-					t = MessageTypeBuddy
+				switch {
+				case b.Type == MessageTypeChatting:
+					t := MessageTypeOwn
+					if b.Socket != socket {
+						t = MessageTypeBuddy
+					}
+
+					msg := Message{
+						Type: t,
+						Text: string(b.Text),
+					}
+
+					o, err := json.Marshal(msg)
+					if err != nil {
+						log.Critical(ctx, err)
+						continue
+					}
+
+					socket.Send <- o
+				case b.Type == MessageTypeSystem:
+					// Maybe this will error twice? Since we're ranging through all the sockets in a room
+					if string(b.Text) != SystemDisconnected {
+						log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
+						continue
+					}
+
+					msg := Message{
+						Type: MessageTypeSystem,
+						Text: SystemDisconnected,
+					}
+
+					o, err := json.Marshal(msg)
+					if err != nil {
+						log.Critical(ctx, err)
+						continue
+					}
+
+					socket.Send <- o
+				default:
+					log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster"))
 				}
 
-				msg := Message{
-					Type: t,
-					Text: string(b.Text),
-				}
-
-				o, err := json.Marshal(msg)
-				if err != nil {
-					log.Critical(ctx, err)
-					continue
-				}
-
-				socket.Send <- o
 			}
 		}
 	}

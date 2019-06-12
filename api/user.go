@@ -10,7 +10,7 @@ import (
 )
 
 type Response struct {
-	Identified bool `json:"identified"`
+	Issued bool `json:"issued"`
 }
 
 func isLoggedIn(r *http.Request, secret string) (bool, error) {

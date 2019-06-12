@@ -15,9 +15,11 @@ import (
 type MessageType string
 
 const (
-	MessageTypeSystem MessageType = "s"
-	MessageTypeOwn    MessageType = "o"
-	MessageTypeBuddy  MessageType = "b"
+	MessageTypeSystem   MessageType = "s"
+
+	MessageTypeChatting MessageType = "c"
+	MessageTypeOwn      MessageType = "o"
+	MessageTypeBuddy    MessageType = "b"
 
 	SystemSearch       = "s"
 	SystemConnected    = "c"
@@ -33,7 +35,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 512
+	maxMessageSize = 1024
 )
 
 //var userSocketsMap = map[int64][]*socket{}
@@ -79,13 +81,13 @@ func (s *Socket) Reader(ctx context.Context) {
 
 		// Extend deadline
 		s.conn.SetReadDeadline(time.Now().Add(pongWait))
-fmt.Printf("%+v\n", msg)
+		fmt.Printf("%+v\n", msg)
 		switch msg.Type {
 		case MessageTypeSystem:
 			s.handleSystemMessage(ctx, msg.Text)
 		case MessageTypeOwn:
-fmt.Printf("Received own message: %+v\n", msg.Text)
-			s.Broadcast <- Broadcast{Socket: s, Text: []byte(msg.Text)}
+			fmt.Printf("Received own message: %+v\n", msg.Text)
+			s.Broadcast <- Broadcast{Socket: s, Type: MessageTypeChatting, Text: []byte(msg.Text)}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)
@@ -127,22 +129,19 @@ func (s *Socket) Writer(ctx context.Context) {
 				return
 			}
 		case <-ticker.C:
+			s.conn.SetReadDeadline(time.Now().Add(writeWait))
 			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Error(ctx, herrors.Wrap(err))
 				return
 			}
 		}
 	}
 }
 
-// Clean up if socket closes
+// If socket disconnects - we need to close the socket not to have a memory leak
 func (s *Socket) Close(ctx context.Context) {
 	s.conn.Close()
-}
-
-func (s *Socket) ReceiveMessage(msg Message) error {
-
-	return nil
 }
 
 func (s *Socket) handleSystemMessage(ctx context.Context, cmd string) {
@@ -151,7 +150,8 @@ func (s *Socket) handleSystemMessage(ctx context.Context, cmd string) {
 		// Enter search mode for user
 		searchAdd(s)
 	case SystemDisconnected:
-		// Disconnect from the current room and end the conversation
+		// Disconnect from the current the conversation, but still part of a room until next search
+		s.Broadcast <- Broadcast{Socket: s, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
 		log.Critical(ctx, err)
