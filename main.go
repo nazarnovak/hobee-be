@@ -60,10 +60,7 @@ func main() {
 
 	socket.Rooms(socketsPool)
 
-	port := os.Getenv("PORT")
-port = ":" + port
-//port = ":8080"
-// TODO: Handle 8080 locally
+	port := ":" + os.Getenv("PORT")
 	if port == "" {
 		fmt.Println(("$PORT must be set"))
 		return
