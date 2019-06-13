@@ -1,0 +1,4 @@
+1) Not found for every path? So then if you do a POST request to /bla you'd get a JSON with {"error": "not found"} or something. Or maybe just block every random request like that too?
+2) Register/Login EP testing once reach a certain level of active users
+3) StatusUnauthorized everywhere where you're not logged in?
+4) Use GET from url package instead of manually checking for length of parameters from URL

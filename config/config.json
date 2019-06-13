@@ -1,0 +1,10 @@
+{
+  "port": ":8080",
+  "log": {
+    "out": "stderr"
+  },
+  "db": {
+      "connection": "postgres://nazar@localhost/hobee?sslmode=disable"
+  },
+  "secret": "supersecret1"
+}
