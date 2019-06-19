@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
 )
 
 const (

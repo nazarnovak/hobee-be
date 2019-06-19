@@ -1,46 +1,46 @@
 package socket
 
-import (
-	"testing"
+//import (
+//	"testing"
+//
+//	"github.com/nn/hobee/models"
+//)
 
-	"github.com/nn/hobee/models"
-)
-
-const users = 50000
-
-func fillUsers() []*models.WSUser{
-	us := []*models.WSUser{}
-
-	for i := int64(0); i < users; i++ {
-		us = append(us, &models.WSUser{
-			User: models.User{
-				ID: i,
-				Group: 1,
-				RoomID: "",
-				Paired: make(chan bool),
-			},
-			Socket: nil,
-		})
-	}
-
-	return us
-}
-
-func BenchmarkNew(b *testing.B) {
-	matcher.users = fillUsers()
-
-	ch := make (chan [2]*models.WSUser)
-
-	for i := 0; i < b.N; i++ {
-		go func() {
-			for j := 0; j < users / 2; i++ {
-				<- ch
-			}
-		}()
-
-		matcher.getMatchingUsersUpgraded(ch)
-    }
-}
+//const users = 50000
+//
+//func fillUsers() []*models.WSUser{
+//	us := []*models.WSUser{}
+//
+//	for i := int64(0); i < users; i++ {
+//		us = append(us, &models.WSUser{
+//			User: models.User{
+//				ID: i,
+//				Group: 1,
+//				RoomID: "",
+//				Paired: make(chan bool),
+//			},
+//			Socket: nil,
+//		})
+//	}
+//
+//	return us
+//}
+//
+//func BenchmarkNew(b *testing.B) {
+//	matcher.users = fillUsers()
+//
+//	ch := make (chan [2]*models.WSUser)
+//
+//	for i := 0; i < b.N; i++ {
+//		go func() {
+//			for j := 0; j < users / 2; i++ {
+//				<- ch
+//			}
+//		}()
+//
+//		matcher.getMatchingUsersUpgraded(ch)
+//    }
+//}
 
 //func TestMatcher(t *testing.T) {
 	//t.Run("testAddition", testAddition)

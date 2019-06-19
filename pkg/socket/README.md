@@ -5,5 +5,3 @@
 3) When searching - have [2]User that will be passed to the matcher
 4) Matcher creates a room with [2]User's and adds the RoomID to each User. Now map[UUID]User will be able to tell in which room the user is in, so when you open the new tab with the same cookie like in step 2 - we just add the new socket to the User
 5) When sending a message - we check if the socket (User) UUID is the same, and if it is - we send it as a "own" message, otherwise - buddy message
-
-Problem - how to clean up the map[UUID]User if someone wasn't online for a long time? Check both parties disconnected from the room and it's been 24 hours already - then remove the room + go through room user UUIDs, and clean then up from the map[UUID]User

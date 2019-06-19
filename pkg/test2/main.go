@@ -1,7 +1,7 @@
 package test2
 
 import (
-	"hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
 )
 
 type A struct {

@@ -1,12 +1,13 @@
 package api
 
 import (
-	"fmt"
-	"github.com/dgrijalva/jwt-go"
 	"net/http"
 
-	"hobee-be/pkg/herrors2"
-	"hobee-be/pkg/log"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/satori/go.uuid"
+
+	"github.com/nazarnovak/hobee-be/pkg/herrors2"
+	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
 type Response struct {
@@ -53,6 +54,16 @@ func isLoggedIn(r *http.Request, secret string) (bool, error) {
 		return false, herrors.New("Could not assert ip as a string")
 	}
 
+	id, ok := claims["uuid"]
+	if !ok {
+		return false, herrors.New("Could not find uuid in claims")
+	}
+
+	idStr, ok := id.(string)
+	if !ok {
+		return false, herrors.New("Could not assert id as a string")
+	}
+
 	if userAgentStr == "" {
 		return false, herrors.New("User-agent claim can not be empty")
 	}
@@ -61,7 +72,44 @@ func isLoggedIn(r *http.Request, secret string) (bool, error) {
 		return false, herrors.New("IP claim can not be empty")
 	}
 
+	if idStr == "" {
+		return false, herrors.New("id claim can not be empty")
+	}
+
 	return true, nil
+}
+
+func getCookieUUID(r *http.Request, secret string) (string, error) {
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	}
+
+	cookie, _ := r.Cookie(sessionCookieName)
+	if cookie == nil {
+		return "", nil
+	}
+
+	tkn, err := jwt.Parse(cookie.Value, keyFunc)
+	if err != nil {
+		return "", herrors.Wrap(err)
+	}
+
+	claims, ok := tkn.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", herrors.New("Could not assert token claims as jwt.MapClaims")
+	}
+
+	id, ok := claims["uuid"]
+	if !ok {
+		return "", herrors.New("Could not find uuid in claims")
+	}
+
+	idStr, ok := id.(string)
+	if !ok {
+		return "", herrors.New("Could not assert id as a string")
+	}
+
+	return idStr, nil
 }
 
 // Identify checks if the request contains a logged in cookie or we need to set one
@@ -81,14 +129,13 @@ func Identify(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// i is a random thing I put into url query to make the request unique for easier testing
-		i := r.URL.Query().Get("i")
+		id := uuid.NewV4()
 
-		ip := fmt.Sprintf("%s.%s", r.RemoteAddr, i)
 		// JWT + cookie
 		claims := jwt.MapClaims{
-			"ip": ip,
+			"ip":         r.RemoteAddr,
 			"user-agent": r.UserAgent(),
+			"uuid":       id.String(),
 		}
 
 		tkn := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

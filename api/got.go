@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
-
-	"hobee-be/pkg/herrors2"
-	"hobee-be/pkg/log"
-	"hobee-be/pkg/socket"
+	"github.com/nazarnovak/hobee-be/pkg/herrors2"
+	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/pkg/socket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,14 +22,14 @@ func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		loggedIn, err := isLoggedIn(r, secret)
+		uuidStr, err := getCookieUUID(r, secret)
 		if err != nil {
 			log.Critical(ctx, herrors.Wrap(err))
 			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
 		}
 
-		if !loggedIn {
+		if uuidStr == "" {
 			log.Critical(ctx, herrors.New("Attempting to access websockets without being logged in"))
 			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
@@ -44,18 +42,16 @@ func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-
-		uuid := uuid.NewV4()
-
 fmt.Println("New socket connected at:", time.Now().UTC().String())
-		s := socket.New(uuid, c)
+		s := socket.New(c)
+
+		user := socket.AttachSocketToUser(uuidStr, s)
 // Creates a new socket with pkg/socket
 // Run reader, which when received "search" command should somehow add the socket to search. That means
 // we will import pkg/matcher
 // pkg/matcher has references to pkg/socket.Socket as a part of Add/Remove functions
-		go s.Reader(ctx)
-		s.Writer(ctx)
-responseJSONSuccess(ctx, w)
+		go user.Reader(ctx, s)
+		user.Writer(ctx, s)
 return
 		ch := make(chan string)
 

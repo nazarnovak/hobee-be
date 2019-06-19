@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"hobee-be/pkg/herrors"
 	"strings"
+
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
 )
 
 const (

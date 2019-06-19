@@ -1,13 +1,13 @@
 package api
 
 import (
-	"hobee-be/pkg/log"
 	"net/http"
 	"strconv"
 
 	"github.com/dgrijalva/jwt-go"
 
-	"hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
 )
 
 func TestLogin(secret string) func(w http.ResponseWriter, r *http.Request) {

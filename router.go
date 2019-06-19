@@ -7,9 +7,9 @@ import (
 
 	"github.com/zenazn/goji/web"
 
-	"hobee-be/api"
-	"hobee-be/pkg/herrors"
-	"hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/api"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
 type Server struct {}

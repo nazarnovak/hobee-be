@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"hobee-be/config"
-	"hobee-be/pkg/log"
-	"hobee-be/pkg/socket"
+	"github.com/nazarnovak/hobee-be/config"
+	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/pkg/socket"
 )
 
 /*
@@ -54,11 +54,11 @@ func main() {
 	//	return
 	//}
 
-	socketsPool := make(chan [2]*socket.Socket)
+	usersPool := make(chan [2]*socket.User)
 
-	go socket.Matcher(socketsPool)
+	go socket.Matcher(usersPool)
 
-	socket.Rooms(socketsPool)
+	socket.Rooms(usersPool)
 
 	port := ":" + os.Getenv("PORT")
 	if port == "" {

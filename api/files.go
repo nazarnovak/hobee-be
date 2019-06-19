@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"hobee-be/pkg/hconst"
+	"github.com/nazarnovak/hobee-be/pkg/hconst"
 )
 
 func Files(w http.ResponseWriter, r *http.Request) error {

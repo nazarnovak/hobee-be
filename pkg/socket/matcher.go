@@ -6,43 +6,51 @@ import (
 )
 
 var (
-	sockets []*Socket
+	searchingUsers = map[string]*User{}
 )
 
-func searchAdd(s *Socket) {
-	fmt.Printf("Added a socket: %+v\n", s.UUID)
-	mutex.Lock()
-	sockets = append(sockets, s)
-	mutex.Unlock()
-}
-
-func searchRemove(s *Socket) {
-	mutex.Lock()
-	for k, socket := range sockets {
-		if socket != s {
-			continue
-		}
-
-		sockets = append(sockets[:k], sockets[k+1:]...)
-		break
+func searchAdd(u *User) {
+	fmt.Printf("Added a user: %+v\n", u.UUID)
+	matcherMutex.Lock()
+	if _, ok := searchingUsers[u.UUID]; !ok {
+		searchingUsers[u.UUID] = u
 	}
-	mutex.Unlock()
+	UpdateStatus(u.UUID, statusSearching)
+	matcherMutex.Unlock()
 }
 
-func getMatchingSockets(sp chan<- [2]*Socket) {
-	if len(sockets) < 2 {
+func searchRemove(uuid string) {
+	matcherMutex.Lock()
+	delete(searchingUsers, uuid)
+	matcherMutex.Unlock()
+}
+
+func getMatchingUsers(sp chan<- [2]*User) {
+	if len(searchingUsers) < 2 {
 		return
 	}
-fmt.Println("Matching 2 sockets")
-	sp <- [2]*Socket{sockets[0], sockets[1]}
 
-	searchRemove(sockets[1])
-	searchRemove(sockets[0])
+	matchedUsers := [2]*User{}
+	matched := 0
+
+	for _, searchingUser := range searchingUsers {
+		if matched > 1 {
+			break
+		}
+
+		matchedUsers[matched] = searchingUser
+		matched++
+	}
+
+	sp <- matchedUsers
+
+	searchRemove(matchedUsers[1].UUID)
+	searchRemove(matchedUsers[0].UUID)
 }
 
-func Matcher(sp chan<- [2]*Socket) {
+func Matcher(sp chan<- [2]*User) {
 	for {
-		getMatchingSockets(sp)
+		getMatchingUsers(sp)
 		time.Sleep(1 * time.Second)
 	}
 }

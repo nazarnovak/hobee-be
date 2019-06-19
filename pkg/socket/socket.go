@@ -1,15 +1,9 @@
 package socket
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
-
-	"hobee-be/pkg/herrors"
-	"hobee-be/pkg/log"
 )
 
 type MessageType string
@@ -38,11 +32,8 @@ const (
 	maxMessageSize = 1024
 )
 
-//var userSocketsMap = map[int64][]*socket{}
-
 // socket represents a uuid and a websocket connection
 type Socket struct {
-	UUID uuid.UUID
 	conn *websocket.Conn
 	// Send is used to send message to websockets
 	Send chan []byte
@@ -56,104 +47,6 @@ type Message struct {
 	Text string      `json:"text"`
 }
 
-func New(uuid uuid.UUID, conn *websocket.Conn) *Socket {
-	return &Socket{UUID: uuid, conn: conn, Send: make(chan []byte)}
-}
-
-func (s *Socket) Reader(ctx context.Context) {
-	defer func() {
-		s.Close(ctx)
-	}()
-
-	s.conn.SetReadLimit(maxMessageSize)
-
-	// Set the deadline for the first message we expect to receive
-	s.conn.SetReadDeadline(time.Now().Add(pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-	for {
-		var msg Message
-		if err := s.conn.ReadJSON(&msg); err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Critical(ctx, herrors.Wrap(err))
-			}
-			break
-		}
-
-		// Extend deadline
-		s.conn.SetReadDeadline(time.Now().Add(pongWait))
-		fmt.Printf("%+v\n", msg)
-		switch msg.Type {
-		case MessageTypeSystem:
-			s.handleSystemMessage(ctx, msg.Text)
-		case MessageTypeOwn:
-			fmt.Printf("Received own message: %+v\n", msg.Text)
-			s.Broadcast <- Broadcast{Socket: s, Type: MessageTypeChatting, Text: []byte(msg.Text)}
-		default:
-			err := herrors.New("Unknown type received in the message", "msg", msg)
-			log.Critical(ctx, err)
-		}
-	}
-}
-
-func (s *Socket) Writer(ctx context.Context) {
-	ticker := time.NewTicker(pingPeriod)
-	defer func() {
-		ticker.Stop()
-		s.conn.Close()
-	}()
-	for {
-		select {
-		case message, ok := <-s.Send:
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				log.Critical(ctx, herrors.New("Room no longer exists"))
-				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			w, err := s.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				log.Critical(ctx, herrors.Wrap(err))
-				return
-			}
-			w.Write(message)
-
-			//// Add queued chat messages to the current websocket message.
-			//n := len(c.send)
-			//for i := 0; i < n; i++ {
-			//	w.Write(newline)
-			//	w.Write(<-c.send)
-			//}
-
-			if err := w.Close(); err != nil {
-				return
-			}
-		case <-ticker.C:
-			s.conn.SetReadDeadline(time.Now().Add(writeWait))
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Error(ctx, herrors.Wrap(err))
-				return
-			}
-		}
-	}
-}
-
-// If socket disconnects - we need to close the socket not to have a memory leak
-func (s *Socket) Close(ctx context.Context) {
-	s.conn.Close()
-}
-
-func (s *Socket) handleSystemMessage(ctx context.Context, cmd string) {
-	switch cmd {
-	case SystemSearch:
-		// Enter search mode for user
-		searchAdd(s)
-	case SystemDisconnected:
-		// Disconnect from the current the conversation, but still part of a room until next search
-		s.Broadcast <- Broadcast{Socket: s, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
-	default:
-		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
-		log.Critical(ctx, err)
-	}
+func New(conn *websocket.Conn) *Socket {
+	return &Socket{conn: conn, Send: make(chan []byte)}
 }

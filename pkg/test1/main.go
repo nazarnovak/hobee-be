@@ -1,8 +1,8 @@
 package test1
 
 import (
-	"hobee-be/pkg/herrors"
-	"hobee-be/pkg/test2"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/test2"
 )
 
 func Test1() error {

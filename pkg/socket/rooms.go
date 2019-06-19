@@ -10,28 +10,28 @@ import (
 
 	"github.com/satori/go.uuid"
 
-	"hobee-be/pkg/herrors"
-	"hobee-be/pkg/log"
-	"hobee-be/pkg/message"
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/pkg/message"
 )
 
 type Room struct {
 	ID        uuid.UUID
 	Messages  []message.Message
 	Broadcast chan Broadcast
-	Sockets   [2]*Socket
+	Users     [2]*User
 }
 
 type Broadcast struct {
-	Socket *Socket
+	UUID string
 	Type   MessageType
 	Text   []byte
 }
 
 var (
-	letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	mutex       = &sync.Mutex{}
-	rooms       = map[uuid.UUID]*Room{}
+	letterRunes  = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	matcherMutex = &sync.Mutex{}
+	rooms        = map[uuid.UUID]*Room{}
 )
 
 func randStringRunes(n int) string {
@@ -42,7 +42,7 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
-func Rooms(matchedSockets <-chan [2]*Socket) {
+func Rooms(matchedUsers <-chan [2]*User) {
 	ctx := context.Background()
 
 	rand.Seed(time.Now().UnixNano())
@@ -50,31 +50,41 @@ func Rooms(matchedSockets <-chan [2]*Socket) {
 	go func() {
 		for {
 			select {
-			case sockets := <-matchedSockets:
+			case users := <-matchedUsers:
 				roomID, err := getUniqueRoomID()
 				if err != nil {
 					log.Critical(ctx, herrors.Wrap(err))
 					return
 				}
 
-				mutex.Lock()
+				matcherMutex.Lock()
 
 				bc := make(chan Broadcast)
 
-				sockets[0].Broadcast, sockets[1].Broadcast = bc, bc
+				for _, u := range users {
+					for _, s := range u.Sockets {
+						s.Broadcast = bc
+					}
+
+					u.RoomUUID = roomID.String()
+				}
+
 				// Should roomID be also added to sockets for reference when they close connection so you need to stop room from existing?
 				room := &Room{
 					ID:        roomID,
 					Messages:  []message.Message{},
 					Broadcast: bc,
-					Sockets:   [2]*Socket{sockets[0], sockets[1]},
+					Users:     [2]*User{users[0], users[1]},
 				}
 
 				rooms[roomID] = room
 
-				mutex.Unlock()
+				UpdateStatus(users[0].UUID, statusTalking)
+				UpdateStatus(users[1].UUID, statusTalking)
 
-fmt.Printf("Got 2 sockets in room: %s\n", roomID)
+				matcherMutex.Unlock()
+
+				fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
 				msg := Message{MessageTypeSystem, SystemConnected}
 				o, err := json.Marshal(msg)
@@ -85,9 +95,11 @@ fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
 				go room.Broadcaster()
 
-				sockets[0].Send <- o
-				sockets[1].Send <- o
-
+				for _, u := range users {
+					for _, s := range u.Sockets {
+						s.Send <- o
+					}
+				}
 			}
 		}
 	}()
@@ -109,49 +121,51 @@ func (r *Room) Broadcaster() {
 	for {
 		select {
 		case b := <-r.Broadcast:
-			for _, socket := range r.Sockets {
-				switch {
-				case b.Type == MessageTypeChatting:
-					t := MessageTypeOwn
-					if b.Socket != socket {
-						t = MessageTypeBuddy
+			for _, user := range r.Users {
+				for _, socket := range user.Sockets {
+					switch {
+					case b.Type == MessageTypeChatting:
+						t := MessageTypeOwn
+						if b.UUID != user.UUID {
+							t = MessageTypeBuddy
+						}
+
+						msg := Message{
+							Type: t,
+							Text: string(b.Text),
+						}
+
+						o, err := json.Marshal(msg)
+						if err != nil {
+							log.Critical(ctx, err)
+							continue
+						}
+
+						socket.Send <- o
+					case b.Type == MessageTypeSystem:
+						// Maybe this will error twice? Since we're ranging through all the sockets in a room
+						if string(b.Text) != SystemDisconnected {
+							log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
+							continue
+						}
+
+						msg := Message{
+							Type: MessageTypeSystem,
+							Text: SystemDisconnected,
+						}
+
+						o, err := json.Marshal(msg)
+						if err != nil {
+							log.Critical(ctx, err)
+							continue
+						}
+
+						socket.Send <- o
+					default:
+						log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster"))
 					}
 
-					msg := Message{
-						Type: t,
-						Text: string(b.Text),
-					}
-
-					o, err := json.Marshal(msg)
-					if err != nil {
-						log.Critical(ctx, err)
-						continue
-					}
-
-					socket.Send <- o
-				case b.Type == MessageTypeSystem:
-					// Maybe this will error twice? Since we're ranging through all the sockets in a room
-					if string(b.Text) != SystemDisconnected {
-						log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
-						continue
-					}
-
-					msg := Message{
-						Type: MessageTypeSystem,
-						Text: SystemDisconnected,
-					}
-
-					o, err := json.Marshal(msg)
-					if err != nil {
-						log.Critical(ctx, err)
-						continue
-					}
-
-					socket.Send <- o
-				default:
-					log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster"))
 				}
-
 			}
 		}
 	}
@@ -188,9 +202,9 @@ func (r *Room) Broadcaster() {
 //	}
 //
 //	// TODO: Save messages to DB
-//	mutex.Lock()
+//	matcherMutex.Lock()
 //	delete(rooms, id)
-//	mutex.Unlock()
+//	matcherMutex.Unlock()
 //}
 //
 //func Broadcast(u *models.WSUser, msg string) error {
@@ -251,7 +265,4 @@ func (r *Room) Broadcaster() {
 //		return false, herrors.New("Tried to connect to a room that doesn't exist anymore", "existingroom", existingRoom, "userID", userID)
 //	}
 //
-//	mutex.Lock()
-//
-//	mutex.Unlock()
 //}
