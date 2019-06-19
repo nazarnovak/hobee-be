@@ -12,26 +12,26 @@ import (
 
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
 	"github.com/nazarnovak/hobee-be/pkg/log"
-	"github.com/nazarnovak/hobee-be/pkg/message"
 )
 
 type Room struct {
 	ID        uuid.UUID
-	Messages  []message.Message
+	Messages  []Message
 	Broadcast chan Broadcast
 	Users     [2]*User
 }
 
 type Broadcast struct {
 	UUID string
-	Type   MessageType
-	Text   []byte
+	Type MessageType
+	Text []byte
 }
 
 var (
-	letterRunes  = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	matcherMutex = &sync.Mutex{}
-	rooms        = map[uuid.UUID]*Room{}
+	letterRunes       = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	matcherMutex      = &sync.Mutex{}
+	roomMessagesMutex = &sync.Mutex{}
+	rooms             = map[uuid.UUID]*Room{}
 )
 
 func randStringRunes(n int) string {
@@ -72,7 +72,7 @@ func Rooms(matchedUsers <-chan [2]*User) {
 				// Should roomID be also added to sockets for reference when they close connection so you need to stop room from existing?
 				room := &Room{
 					ID:        roomID,
-					Messages:  []message.Message{},
+					Messages:  []Message{},
 					Broadcast: bc,
 					Users:     [2]*User{users[0], users[1]},
 				}
@@ -86,20 +86,9 @@ func Rooms(matchedUsers <-chan [2]*User) {
 
 				fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
-				msg := Message{MessageTypeSystem, SystemConnected}
-				o, err := json.Marshal(msg)
-				if err != nil {
-					log.Critical(ctx, err)
-					continue
-				}
-
 				go room.Broadcaster()
 
-				for _, u := range users {
-					for _, s := range u.Sockets {
-						s.Send <- o
-					}
-				}
+				room.Broadcast <- Broadcast{UUID: "", Type: MessageTypeSystem, Text: []byte(SystemConnected)}
 			}
 		}
 	}()
@@ -121,6 +110,26 @@ func (r *Room) Broadcaster() {
 	for {
 		select {
 		case b := <-r.Broadcast:
+			// TODO: Even tho the messages are already saved here, if there's an error happening it might cause
+			// inconsistencies, so for example it will save an unknown type of a message, or someone might send a message,
+			// and when trying to broadcast the message back to them there might be an error, so they'll try again and
+			// that will duplicate the message
+			roomMessagesMutex.Lock()
+			msg := Message{
+				Type: b.Type,
+				Text: string(b.Text),
+				AuthorUUID: b.UUID,
+				Timestamp:  time.Now().UTC(),
+			}
+
+			r.Messages = append(r.Messages, msg)
+
+			// "Wipe" the author after adding it to the room, so it doesn't get exposed to FE (not like it matters,
+			// but yeah)
+			msg.AuthorUUID = ""
+
+			roomMessagesMutex.Unlock()
+
 			for _, user := range r.Users {
 				for _, socket := range user.Sockets {
 					switch {
@@ -130,10 +139,7 @@ func (r *Room) Broadcaster() {
 							t = MessageTypeBuddy
 						}
 
-						msg := Message{
-							Type: t,
-							Text: string(b.Text),
-						}
+						msg.Type = t
 
 						o, err := json.Marshal(msg)
 						if err != nil {
@@ -144,14 +150,9 @@ func (r *Room) Broadcaster() {
 						socket.Send <- o
 					case b.Type == MessageTypeSystem:
 						// Maybe this will error twice? Since we're ranging through all the sockets in a room
-						if string(b.Text) != SystemDisconnected {
+						if string(b.Text) != SystemConnected && string(b.Text) != SystemDisconnected {
 							log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
 							continue
-						}
-
-						msg := Message{
-							Type: MessageTypeSystem,
-							Text: SystemDisconnected,
 						}
 
 						o, err := json.Marshal(msg)

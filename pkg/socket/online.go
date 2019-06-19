@@ -78,7 +78,6 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 		case MessageTypeSystem:
 			u.handleSystemMessage(ctx, s, msg.Text)
 		case MessageTypeOwn:
-			fmt.Printf("Received own message: %+v\n", msg.Text)
 			s.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeChatting, Text: []byte(msg.Text)}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)

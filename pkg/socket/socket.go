@@ -9,7 +9,7 @@ import (
 type MessageType string
 
 const (
-	MessageTypeSystem   MessageType = "s"
+	MessageTypeSystem MessageType = "s"
 
 	MessageTypeChatting MessageType = "c"
 	MessageTypeOwn      MessageType = "o"
@@ -43,8 +43,10 @@ type Socket struct {
 }
 
 type Message struct {
-	Type MessageType `json:"type"`
-	Text string      `json:"text"`
+	AuthorUUID string
+	Type      MessageType `json:"type"`
+	Text      string      `json:"text"`
+	Timestamp time.Time   `json:"timestamp"`
 }
 
 func New(conn *websocket.Conn) *Socket {
