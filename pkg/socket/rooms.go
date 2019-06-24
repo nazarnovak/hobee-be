@@ -19,7 +19,29 @@ type Room struct {
 	Messages  []Message
 	Broadcast chan Broadcast
 	Users     [2]*User
+	//Summaries [2]*Summary
 }
+
+// TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
+
+//type reportReason int
+//
+//var (
+//	reasonSpam reportReason = 0
+//	reasonHarassing reportReason = 1
+//	reasonRacism reportReason = 2
+//	reasonSex reportReason = 3
+//	reasonOther reportReason = 4
+//
+//	allReasons = []reportReason{reasonSpam, reasonHarassing ...}
+//
+//)
+//
+//type Summary struct {
+//	AuthorUUID string
+//	Liked bool
+//	Reported reportReason
+//}
 
 type Broadcast struct {
 	UUID string
@@ -59,6 +81,8 @@ func Rooms(matchedUsers <-chan [2]*User) {
 
 				matcherMutex.Lock()
 
+				// Broadcast is a shared channel between room and each socket, that way if you send something to either
+				// room's broadcast or socket broadcast channel - it will be sent to everyone who's joined in that room
 				bc := make(chan Broadcast)
 
 				for _, u := range users {
@@ -155,6 +179,12 @@ func (r *Room) Broadcaster() {
 							continue
 						}
 
+						// If someone disconnected - we don't have to have broadcast channel alive anymore - we clean it
+						// up
+						if string(b.Text) == SystemDisconnected {
+							r.Close()
+						}
+
 						o, err := json.Marshal(msg)
 						if err != nil {
 							log.Critical(ctx, err)
@@ -170,6 +200,11 @@ func (r *Room) Broadcaster() {
 			}
 		}
 	}
+}
+
+// Close closes the rooms broadcast channel, since there is no need for that anymore.
+func (r *Room) Close() {
+	close(r.Broadcast)
 }
 
 //func Close(id string) {

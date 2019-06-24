@@ -45,11 +45,33 @@ func AttachSocketToUser(uuid string, s *Socket) *User {
 		usersSocketsMap[uuid] = u
 	}
 
+	// If user is already matched, this connects to the existing broadcast channel, which allows to read/write to the
+	// room users/sockets
+	hasSockets := len(usersSocketsMap[uuid].Sockets) > 0
+	if hasSockets && usersSocketsMap[uuid].Sockets[0].Broadcast != nil {
+		s.Broadcast = usersSocketsMap[uuid].Sockets[0].Broadcast
+	}
+
 	// Add the socket to the newly created user, or to an existing user
 	usersSocketsMap[uuid].Sockets = append(usersSocketsMap[uuid].Sockets, s)
 	onlineMutex.Unlock()
 
 	return usersSocketsMap[uuid]
+}
+
+func UserInARoom(uuid string) bool {
+	// TODO: Not sure if you need locks for read only?
+	onlineMutex.Lock()
+	found := false
+
+	if u, ok := usersSocketsMap[uuid]; ok {
+		if u.RoomUUID != "" {
+			found = true
+		}
+	}
+	onlineMutex.Unlock()
+
+	return found
 }
 
 func (u *User) Reader(ctx context.Context, s *Socket) {
@@ -134,7 +156,7 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 
 // If socket disconnects - we need to close the socket not to have a memory leak
 func (u *User) Close(ctx context.Context, s *Socket) {
-fmt.Println("Closing down disconnected websocket")
+	fmt.Println("Closing down disconnected websocket")
 	onlineMutex.Lock()
 	for k, socket := range u.Sockets {
 		if socket.conn != s.conn {
@@ -157,9 +179,9 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 		searchAdd(u)
 	case SystemDisconnected:
 		// Disconnect from the current the conversation, but still part of a room until next search
-// UpdateStatus(users[0].UUID, statusDisconnected)
-// UpdateStatus(users[1].UUID, statusDisconnected)
-// UpdateStatus(room[uuid], statusDisconnected)
+		// UpdateStatus(users[0].UUID, statusDisconnected)
+		// UpdateStatus(users[1].UUID, statusDisconnected)
+		// UpdateStatus(room[uuid], statusDisconnected)
 		s.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)

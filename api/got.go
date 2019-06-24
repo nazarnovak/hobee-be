@@ -67,7 +67,29 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 // we will import pkg/matcher
 // pkg/matcher has references to pkg/socket.Socket as a part of Add/Remove functions
 		go user.Reader(ctx, s)
-		user.Writer(ctx, s)
+		go user.Writer(ctx, s)
+
+		// Initial message - to notify if user is already connected to a room and the socket should join it, or there is no
+		// existing room and the user should search for a match
+		msg := socket.Message{
+			Type: socket.MessageTypeSystem,
+			Text: socket.SystemSearch,
+			AuthorUUID: uuidStr,
+			Timestamp:  time.Now().UTC(),
+		}
+
+		// If we don't find user in existing rooms - we notify FE about it and "allow" it to go into search mode
+		if found := socket.UserInARoom(uuidStr); found {
+			msg.Text = socket.SystemConnected
+		}
+
+		o, err := json.Marshal(msg)
+		if err != nil {
+			log.Critical(ctx, err)
+			return
+		}
+
+		s.Send <- o
 return
 		ch := make(chan string)
 
