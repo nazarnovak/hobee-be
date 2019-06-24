@@ -42,7 +42,6 @@ func Wrap(err error, keyVals ...interface{}) error {
 	}
 
 	e.keyVals = mapKeyVals(err, keyVals...)
-fmt.Println("In wrap:", getCallerPrettyStack())
 	e.prettyStack += getCallerPrettyStack()
 
 	return e
@@ -52,9 +51,7 @@ func New(msg string, keyVals ...interface{}) error {
 	e := Error{}
 
 	e.error = errors.New(msg)
-	e.keyVals = mapKeyVals(e, keyVals)
-fmt.Println("In new keyVals:", mapKeyVals(e, keyVals))
-fmt.Println("In new:", getCallerPrettyStack())
+	e.keyVals = mapKeyVals(e, keyVals...)
 	e.prettyStack = getCallerPrettyStack()
 
 	return e

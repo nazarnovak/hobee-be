@@ -2,3 +2,7 @@
 2) Register/Login EP testing once reach a certain level of active users
 3) StatusUnauthorized everywhere where you're not logged in?
 4) Use GET from url package instead of manually checking for length of parameters from URL
+
+Tips:
+When connecting to ws://address, need to be careful, because apparently even when I'm doing it from
+https://www.websocket.org/echo.html, if I'm authenticated on the site, it will send the cookies attached to the request!?

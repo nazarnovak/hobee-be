@@ -18,9 +18,25 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// Prevents requests from random sites directly to handshake with WS
+var allowedOrigins = []string{
+	// Local
+	"http://localhost:8080",
+	// Heroku
+	"https://hobee.herokuapp.com",
+	// Testing with ngrok
+	"https://a501ba20.ngrok.io",
+}
+
 func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+
+		if err := checkOrigin(r); err != nil {
+			log.Critical(ctx, err)
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			return
+		}
 
 		uuidStr, err := getCookieUUID(r, secret)
 		if err != nil {
@@ -106,4 +122,24 @@ return
 			}
 		}(ch)
 	}
+}
+
+func checkOrigin(r *http.Request) error {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return herrors.New("Empty origin")
+	}
+
+	found := false
+	for _, allowedOrigin := range allowedOrigins {
+		if origin == allowedOrigin {
+			found = true
+		}
+	}
+
+	if !found {
+		return herrors.New("Origin not allowed", "origin", origin)
+	}
+
+	return nil
 }
