@@ -59,19 +59,20 @@ func AttachSocketToUser(uuid string, s *Socket) *User {
 	return usersSocketsMap[uuid]
 }
 
-func UserInARoom(uuid string) bool {
+func UserInARoomUUID(userUUID string) string {
 	// TODO: Not sure if you need locks for read only?
 	onlineMutex.Lock()
-	found := false
 
-	if u, ok := usersSocketsMap[uuid]; ok {
+	roomUUID := ""
+
+	if u, ok := usersSocketsMap[userUUID]; ok {
 		if u.RoomUUID != "" {
-			found = true
+			roomUUID = u.RoomUUID
 		}
 	}
 	onlineMutex.Unlock()
 
-	return found
+	return roomUUID
 }
 
 func (u *User) Reader(ctx context.Context, s *Socket) {

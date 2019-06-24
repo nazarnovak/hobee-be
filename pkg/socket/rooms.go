@@ -53,7 +53,7 @@ var (
 	letterRunes       = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	matcherMutex      = &sync.Mutex{}
 	roomMessagesMutex = &sync.Mutex{}
-	rooms             = map[uuid.UUID]*Room{}
+	rooms             = map[string]*Room{}
 )
 
 func randStringRunes(n int) string {
@@ -101,7 +101,7 @@ func Rooms(matchedUsers <-chan [2]*User) {
 					Users:     [2]*User{users[0], users[1]},
 				}
 
-				rooms[roomID] = room
+				rooms[roomID.String()] = room
 
 				UpdateStatus(users[0].UUID, statusTalking)
 				UpdateStatus(users[1].UUID, statusTalking)
@@ -121,7 +121,7 @@ func Rooms(matchedUsers <-chan [2]*User) {
 func getUniqueRoomID() (uuid.UUID, error) {
 	u := uuid.NewV4()
 
-	if _, ok := rooms[u]; !ok {
+	if _, ok := rooms[u.String()]; !ok {
 		return u, nil
 	}
 
@@ -205,6 +205,19 @@ func (r *Room) Broadcaster() {
 // Close closes the rooms broadcast channel, since there is no need for that anymore.
 func (r *Room) Close() {
 	close(r.Broadcast)
+}
+
+func RoomMessages(uuid string) ([]Message, error) {
+	matcherMutex.Lock()
+
+	room, ok := rooms[uuid]
+	if !ok {
+		return nil, herrors.New("Failed to find a room", "uuid", uuid)
+	}
+
+	matcherMutex.Unlock()
+
+	return room.Messages, nil
 }
 
 //func Close(id string) {

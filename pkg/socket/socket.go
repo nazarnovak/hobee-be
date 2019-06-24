@@ -18,6 +18,7 @@ const (
 	SystemSearch       = "s"
 	SystemConnected    = "c"
 	SystemDisconnected = "d"
+	SystemTalking      = "t"
 
 	// Time allowed to write a message to the peer.
 	writeWait = 60 * time.Second
@@ -44,9 +45,9 @@ type Socket struct {
 
 type Message struct {
 	AuthorUUID string
-	Type      MessageType `json:"type"`
-	Text      string      `json:"text"`
-	Timestamp time.Time   `json:"timestamp"`
+	Type       MessageType `json:"type"`
+	Text       string      `json:"text"`
+	Timestamp  time.Time   `json:"timestamp"`
 }
 
 func New(conn *websocket.Conn) *Socket {

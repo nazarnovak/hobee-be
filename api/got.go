@@ -25,7 +25,7 @@ var allowedOrigins = []string{
 	// Heroku
 	"https://hobee.herokuapp.com",
 	// Testing with ngrok
-	"https://a501ba20.ngrok.io",
+	"https://b518cf15.ngrok.io",
 }
 
 func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
@@ -79,8 +79,8 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 		}
 
 		// If we don't find user in existing rooms - we notify FE about it and "allow" it to go into search mode
-		if found := socket.UserInARoom(uuidStr); found {
-			msg.Text = socket.SystemConnected
+		if roomUUID := socket.UserInARoomUUID(uuidStr); roomUUID != "" {
+			msg.Text = socket.SystemTalking
 		}
 
 		o, err := json.Marshal(msg)
