@@ -19,6 +19,7 @@ type Room struct {
 	Messages  []Message
 	Broadcast chan Broadcast
 	Users     [2]*User
+	Active    bool
 	//Summaries [2]*Summary
 }
 
@@ -99,6 +100,7 @@ func Rooms(matchedUsers <-chan [2]*User) {
 					Messages:  []Message{},
 					Broadcast: bc,
 					Users:     [2]*User{users[0], users[1]},
+					Active:    true,
 				}
 
 				rooms[roomID.String()] = room
@@ -132,6 +134,12 @@ func (r *Room) Broadcaster() {
 	ctx := context.Background()
 
 	for {
+		// Break the loop once we mark the room as inactive, or closed with the conversations. Nothing should be
+		// broadcasted after that
+		if r.Active == false {
+			break
+		}
+
 		select {
 		case b := <-r.Broadcast:
 			// TODO: Even tho the messages are already saved here, if there's an error happening it might cause
@@ -140,8 +148,8 @@ func (r *Room) Broadcaster() {
 			// that will duplicate the message
 			roomMessagesMutex.Lock()
 			msg := Message{
-				Type: b.Type,
-				Text: string(b.Text),
+				Type:       b.Type,
+				Text:       string(b.Text),
 				AuthorUUID: b.UUID,
 				Timestamp:  time.Now().UTC(),
 			}
@@ -179,12 +187,6 @@ func (r *Room) Broadcaster() {
 							continue
 						}
 
-						// If someone disconnected - we don't have to have broadcast channel alive anymore - we clean it
-						// up
-						if string(b.Text) == SystemDisconnected {
-							r.Close()
-						}
-
 						o, err := json.Marshal(msg)
 						if err != nil {
 							log.Critical(ctx, err)
@@ -193,7 +195,7 @@ func (r *Room) Broadcaster() {
 
 						socket.Send <- o
 					default:
-						log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster"))
+						log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster", "type", b.Type))
 					}
 
 				}
@@ -203,8 +205,20 @@ func (r *Room) Broadcaster() {
 }
 
 // Close closes the rooms broadcast channel, since there is no need for that anymore.
-func (r *Room) Close() {
-	close(r.Broadcast)
+func Close(uuid string) error {
+	matcherMutex.Lock()
+
+	room, ok := rooms[uuid]
+	if !ok {
+		return herrors.New("Failed to find a room", "uuid", uuid)
+	}
+
+	room.Active = false
+	close(room.Broadcast)
+
+	matcherMutex.Unlock()
+
+	return nil
 }
 
 func RoomMessages(uuid string) ([]Message, error) {

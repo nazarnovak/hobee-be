@@ -184,6 +184,11 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 		// UpdateStatus(users[1].UUID, statusDisconnected)
 		// UpdateStatus(room[uuid], statusDisconnected)
 		s.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
+
+		// If someone disconnected - we don't have to have broadcast channel alive anymore - we clean it
+		if err := Close(u.RoomUUID); err != nil {
+			log.Critical(ctx, err)
+		}
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
 		log.Critical(ctx, err)
