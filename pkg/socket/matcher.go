@@ -11,7 +11,11 @@ var (
 
 func searchAdd(u *User) {
 	fmt.Printf("Added a user: %+v\n", u.UUID)
+
 	matcherMutex.Lock()
+	// Reset the roomUUID if user was connected in a room before
+	u.RoomUUID = ""
+
 	if _, ok := searchingUsers[u.UUID]; !ok {
 		searchingUsers[u.UUID] = u
 	}

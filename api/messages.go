@@ -4,8 +4,8 @@ import (
 	"github.com/nazarnovak/hobee-be/pkg/socket"
 	"net/http"
 
-	"github.com/nazarnovak/hobee-be/pkg/log"
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
+	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
 type MessagesResponse struct {
@@ -51,9 +51,15 @@ func Messages(secret string) func(w http.ResponseWriter, r *http.Request) {
 
 		// We're marking users own messages so FE understands how to sort it
 		for k, msg := range msgs {
+			if msg.Type != socket.MessageTypeChatting {
+				continue
+			}
+
 			if msg.AuthorUUID == uuidStr {
 				msgs[k].Type = socket.MessageTypeOwn
+				continue
 			}
+			msgs[k].Type = socket.MessageTypeBuddy
 		}
 
 		o := MessagesResponse{

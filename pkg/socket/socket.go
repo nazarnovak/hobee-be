@@ -18,7 +18,10 @@ const (
 	SystemSearch       = "s"
 	SystemConnected    = "c"
 	SystemDisconnected = "d"
-	SystemTalking      = "t"
+
+	// Room related system messages
+	SystemRoomActive = "ra"
+	SystemRoomInactive = "ri"
 
 	// Time allowed to write a message to the peer.
 	writeWait = 60 * time.Second

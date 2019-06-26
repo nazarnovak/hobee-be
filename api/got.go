@@ -79,8 +79,21 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 		}
 
 		// If we don't find user in existing rooms - we notify FE about it and "allow" it to go into search mode
-		if roomUUID := socket.UserInARoomUUID(uuidStr); roomUUID != "" {
-			msg.Text = socket.SystemTalking
+		roomUUID := socket.UserInARoomUUID(uuidStr)
+
+		if roomUUID != "" {
+			active, err := socket.IsRoomActive(roomUUID)
+			if err != nil {
+				log.Critical(ctx, herrors.Wrap(err))
+				ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+				return
+			}
+
+			msg.Text = socket.SystemRoomActive
+			if !active {
+				msg.Text = socket.SystemRoomInactive
+
+			}
 		}
 
 		o, err := json.Marshal(msg)

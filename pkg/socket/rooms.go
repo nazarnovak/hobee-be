@@ -231,7 +231,36 @@ func RoomMessages(uuid string) ([]Message, error) {
 
 	matcherMutex.Unlock()
 
-	return room.Messages, nil
+	// We need to make a separate copy of the messages, since if we don't want to change anything in the original struct
+	// to meddle with original data
+	msgsCopy := []Message{}
+
+	for _, msg := range room.Messages {
+		msgCopy := Message{
+			AuthorUUID: msg.AuthorUUID,
+			Type: msg.Type,
+			Text: msg.Text,
+			Timestamp: msg.Timestamp,
+		}
+
+		msgsCopy = append(msgsCopy, msgCopy)
+	}
+
+	return msgsCopy, nil
+}
+
+func IsRoomActive(uuid string) (bool, error) {
+	matcherMutex.Lock()
+
+	room, ok := rooms[uuid]
+	if !ok {
+		return false, herrors.New("Failed to find a room, maybe it wasn't cleaned up but user roomUUID was changed",
+			"uuid", uuid)
+	}
+
+	matcherMutex.Unlock()
+
+	return room.Active, nil
 }
 
 //func Close(id string) {
