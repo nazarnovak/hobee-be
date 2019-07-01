@@ -87,14 +87,10 @@ func Rooms(matchedUsers <-chan [2]*User) {
 				bc := make(chan Broadcast)
 
 				for _, u := range users {
-					for _, s := range u.Sockets {
-						s.Broadcast = bc
-					}
-
+					u.Broadcast = bc
 					u.RoomUUID = roomID.String()
 				}
 
-				// Should roomID be also added to sockets for reference when they close connection so you need to stop room from existing?
 				room := &Room{
 					ID:        roomID,
 					Messages:  []Message{},
@@ -182,7 +178,8 @@ func (r *Room) Broadcaster() {
 						socket.Send <- o
 					case b.Type == MessageTypeSystem:
 						// Maybe this will error twice? Since we're ranging through all the sockets in a room
-						if string(b.Text) != SystemConnected && string(b.Text) != SystemDisconnected {
+						if string(b.Text) != SystemConnected && string(b.Text) != SystemDisconnected &&
+							string(b.Text) != SystemUserActive && string(b.Text) != SystemUserInactive {
 							log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
 							continue
 						}
@@ -238,9 +235,9 @@ func RoomMessages(uuid string) ([]Message, error) {
 	for _, msg := range room.Messages {
 		msgCopy := Message{
 			AuthorUUID: msg.AuthorUUID,
-			Type: msg.Type,
-			Text: msg.Text,
-			Timestamp: msg.Timestamp,
+			Type:       msg.Type,
+			Text:       msg.Text,
+			Timestamp:  msg.Timestamp,
 		}
 
 		msgsCopy = append(msgsCopy, msgCopy)

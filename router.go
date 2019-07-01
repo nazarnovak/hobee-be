@@ -3,16 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
-
 	"github.com/zenazn/goji/web"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/nazarnovak/hobee-be/api"
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
-type Server struct {}
+type Server struct{}
 
 func NewServer() *Server {
 	return &Server{}
@@ -42,7 +44,7 @@ func HobeeHandler(hf handlerFunc) httpServer {
 
 func (s *Server) Start(secret, port string) {
 	srv := &http.Server{
-		Addr: port,
+		Addr:    port,
 		Handler: router(secret),
 	}
 
@@ -54,7 +56,7 @@ func (s *Server) Start(secret, port string) {
 	}
 }
 
-func router(secret string) *web.Mux{
+func router(secret string) *web.Mux {
 	mux := web.New()
 
 	// TODO: Setup logging, panic recovery and tracing on the top level, we want it everywhere?
@@ -62,25 +64,85 @@ func router(secret string) *web.Mux{
 	//mux.Get("/api/user", api.User(secret))
 	//mux.Post("/api/login", api.Login(secret))
 
-//mux.Use(getCorsHandler())
-	mux.Get("/test/login", api.TestLogin(secret))
-	mux.Get("/test/logout", api.TestLogout(secret))
+	//mux.Use(getCorsHandler())
+	//	mux.Get("/test/login", api.TestLogin(secret))
+	//	mux.Get("/test/logout", api.TestLogout(secret))
 
-mux.Get("/api/identify", api.Identify(secret))
-mux.Get("/api/got", api.GOT(secret))
-mux.Get("/api/messages", api.Messages(secret))
+	mux.Get("/api/identify", api.Identify(secret))
+	mux.Get("/api/got", api.GOT(secret))
+	mux.Get("/api/messages", api.Messages(secret))
 	//mux.Get("/ws", controllers.WS(secret))
 
-	compiledFELocation := "build/"
-// TODO: Figure out relative path to /build so it works on heroku prod
-// Check if the files I have in the folder and if it matches - serve it, otherwise default to index.html
-mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
-    http.ServeFile(w, r, compiledFELocation + "index.html")
-})
+	compiledFEFolder := "build"
 
-	mux.Handle("/*", http.FileServer(http.Dir(compiledFELocation)))
+	//staticFiles, err := getStaticFiles(compiledFEFolder)
+	//if err != nil {
+	//	log.Critical(context.Background(), err)
+	//}
+	//
+	//for _, staticFile := range staticFiles {
+	//	headers := map[string]string{}
+	//	fmt.Println(staticFile)
+	//	//if strings.HasSuffix(staticFile, ".css") {
+	//	//	headers = map[string]string{
+	//	//		"Content-Type": "text/css",
+	//	//	}
+	//	//}
+	//	//if strings.HasSuffix(staticFile, ".js") {
+	//	//	headers = map[string]string{
+	//	//		"Content-Type": "text/javascript",
+	//	//	}
+	//	//}
+	//
+	//	staticFileFn := func(headers map[string]string) func(w http.ResponseWriter, r *http.Request) {
+	//		return func(w http.ResponseWriter, r *http.Request) {
+	//			for header, value := range headers {
+	//				w.Header().Set(header, value)
+	//			}
+	//
+	//			http.ServeFile(w, r, fmt.Sprintf("%s%s", compiledFEFolder, staticFile))
+	//		}
+	//	}
+	//
+	//	mux.Get(staticFile, staticFileFn(headers))
+	//}
+	//
+	// Check if the files I have in the folder and if it matches - serve it, otherwise default to index.html
+	mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, fmt.Sprintf("%s/%s", compiledFEFolder, "index.html"))
+	})
+
+	mux.Handle("/*", http.FileServer(http.Dir(compiledFEFolder)))
 
 	return mux
+}
+
+func getStaticFiles(root string) ([]string, error) {
+	files := []string{}
+
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return herrors.Wrap(err)
+		}
+
+		path = strings.TrimLeft(path, "build")
+
+		if path == "/.DS_Store" || path == "/index.html" || path == "/static" || path == "/static/css" ||
+			path == "/static/js" || path == "/static/media" {
+			return nil
+		}
+
+		files = append(files, path)
+
+		return nil
+	}
+
+	err := filepath.Walk(root, walkFn)
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	return files, nil
 }
 
 //func getCorsHandler() func(http.Handler) http.Handler {

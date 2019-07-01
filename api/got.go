@@ -94,6 +94,9 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 				msg.Text = socket.SystemRoomInactive
 
 			}
+
+			// If this is the only UUID that is online now - then we need to send a new system message on the room like
+			// "s","ua"
 		}
 
 		o, err := json.Marshal(msg)

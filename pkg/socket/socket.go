@@ -19,8 +19,11 @@ const (
 	SystemConnected    = "c"
 	SystemDisconnected = "d"
 
+	SystemUserActive   = "ua"
+	SystemUserInactive = "ui"
+
 	// Room related system messages
-	SystemRoomActive = "ra"
+	SystemRoomActive   = "ra"
 	SystemRoomInactive = "ri"
 
 	// Time allowed to write a message to the peer.
@@ -41,9 +44,6 @@ type Socket struct {
 	conn *websocket.Conn
 	// Send is used to send message to websockets
 	Send chan []byte
-	// Send is used when socket receives a message and wants to broadcast it to everyone in the room, ending
-	// up in Send
-	Broadcast chan Broadcast
 }
 
 type Message struct {

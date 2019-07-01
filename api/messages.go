@@ -1,11 +1,11 @@
 package api
 
 import (
-	"github.com/nazarnovak/hobee-be/pkg/socket"
 	"net/http"
 
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
 	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/nazarnovak/hobee-be/pkg/socket"
 )
 
 type MessagesResponse struct {

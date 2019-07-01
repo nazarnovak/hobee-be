@@ -31,6 +31,11 @@ const (
 type User struct {
 	UUID     string
 	Sockets  []*Socket
+
+	// Broadcast is used when socket receives a message and wants to broadcast it to everyone in the room, ending
+	// up in Send
+	Broadcast chan Broadcast
+
 	RoomUUID string
 
 	Status status
@@ -45,11 +50,9 @@ func AttachSocketToUser(uuid string, s *Socket) *User {
 		usersSocketsMap[uuid] = u
 	}
 
-	// If user is already matched, this connects to the existing broadcast channel, which allows to read/write to the
-	// room users/sockets
-	hasSockets := len(usersSocketsMap[uuid].Sockets) > 0
-	if hasSockets && usersSocketsMap[uuid].Sockets[0].Broadcast != nil {
-		s.Broadcast = usersSocketsMap[uuid].Sockets[0].Broadcast
+	// If were in a room earlier and reconnect notify that you became active again
+	if len(usersSocketsMap[uuid].Sockets) == 0 && usersSocketsMap[uuid].RoomUUID != "" {
+		usersSocketsMap[uuid].Broadcast <- Broadcast{UUID: uuid, Type: MessageTypeSystem, Text: []byte(SystemUserActive)}
 	}
 
 	// Add the socket to the newly created user, or to an existing user
@@ -101,7 +104,7 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 		case MessageTypeSystem:
 			u.handleSystemMessage(ctx, s, msg.Text)
 		case MessageTypeOwn:
-			s.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeChatting, Text: []byte(msg.Text)}
+			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeChatting, Text: []byte(msg.Text)}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)
@@ -113,12 +116,12 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		u.Close(ctx, s)
+		// No need to close the websocket connection because it's already done by the reader?
+		//u.Close(ctx, s)
 	}()
 	for {
 		select {
 		case message, ok := <-s.Send:
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				log.Critical(ctx, herrors.New("Room no longer exists"))
 				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -130,7 +133,11 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 				log.Critical(ctx, herrors.Wrap(err))
 				return
 			}
-			w.Write(message)
+
+			if _, err := w.Write(message); err != nil {
+				log.Critical(ctx, herrors.Wrap(err))
+				return
+			}
 
 			//// Add queued chat messages to the current websocket message.
 			//n := len(c.send)
@@ -143,8 +150,6 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 				return
 			}
 		case <-ticker.C:
-			s.conn.SetReadDeadline(time.Now().Add(writeWait))
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				if err != websocket.ErrCloseSent {
 					log.Error(ctx, herrors.Wrap(err))
@@ -167,6 +172,11 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 		u.Sockets = append(u.Sockets[:k], u.Sockets[k+1:]...)
 	}
 
+	// If this is the last socket of the user - set a user inactive event in the room
+	if len(u.Sockets) == 0 && u.RoomUUID != "" {
+		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemUserInactive)}
+	}
+
 	onlineMutex.Unlock()
 
 	// Close the actual websocket
@@ -183,7 +193,7 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 		// UpdateStatus(users[0].UUID, statusDisconnected)
 		// UpdateStatus(users[1].UUID, statusDisconnected)
 		// UpdateStatus(room[uuid], statusDisconnected)
-		s.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
+		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
 
 		// If someone disconnected - we don't have to have broadcast channel alive anymore - we clean it
 		if err := Close(u.RoomUUID); err != nil {
