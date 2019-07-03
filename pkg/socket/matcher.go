@@ -13,6 +13,8 @@ func searchAdd(u *User) {
 	fmt.Printf("Added a user: %+v\n", u.UUID)
 
 	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
 	// Reset the roomUUID if user was connected in a room before
 	u.RoomUUID = ""
 
@@ -20,13 +22,13 @@ func searchAdd(u *User) {
 		searchingUsers[u.UUID] = u
 	}
 	UpdateStatus(u.UUID, statusSearching)
-	matcherMutex.Unlock()
 }
 
 func searchRemove(uuid string) {
 	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
 	delete(searchingUsers, uuid)
-	matcherMutex.Unlock()
 }
 
 func getMatchingUsers(sp chan<- [2]*User) {

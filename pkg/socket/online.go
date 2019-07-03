@@ -29,12 +29,12 @@ const (
 )
 
 type User struct {
-	UUID     string
-	Sockets  []*Socket
+	UUID    string
+	Sockets []*Socket
 
 	// Broadcast is used when socket receives a message and wants to broadcast it to everyone in the room, ending
 	// up in Send
-	Broadcast chan Broadcast
+	Broadcast chan<- Broadcast
 
 	RoomUUID string
 
@@ -45,19 +45,29 @@ type User struct {
 // creates a new user and attaches that to the online. It returns the user instance
 func AttachSocketToUser(uuid string, s *Socket) *User {
 	onlineMutex.Lock()
+	defer onlineMutex.Unlock()
+
 	if _, ok := usersSocketsMap[uuid]; !ok {
 		u := &User{UUID: uuid, Sockets: []*Socket{}}
 		usersSocketsMap[uuid] = u
 	}
 
-	// If were in a room earlier and reconnect notify that you became active again
-	if len(usersSocketsMap[uuid].Sockets) == 0 && usersSocketsMap[uuid].RoomUUID != "" {
-		usersSocketsMap[uuid].Broadcast <- Broadcast{UUID: uuid, Type: MessageTypeSystem, Text: []byte(SystemUserActive)}
+	u := usersSocketsMap[uuid]
+
+	// If user was in a room earlier and reconnected - notify the room that the user became active again
+	if len(u.Sockets) == 0 && u.RoomUUID != "" {
+		active, err := IsRoomActive(u.RoomUUID)
+		if err != nil {
+			log.Critical(context.Background(), herrors.Wrap(err))
+			return nil
+		}
+		if active {
+			u.Broadcast <- Broadcast{UUID: uuid, Type: MessageTypeActivity, Text: []byte(ActivityUserActive)}
+		}
 	}
 
 	// Add the socket to the newly created user, or to an existing user
 	usersSocketsMap[uuid].Sockets = append(usersSocketsMap[uuid].Sockets, s)
-	onlineMutex.Unlock()
 
 	return usersSocketsMap[uuid]
 }
@@ -65,6 +75,7 @@ func AttachSocketToUser(uuid string, s *Socket) *User {
 func UserInARoomUUID(userUUID string) string {
 	// TODO: Not sure if you need locks for read only?
 	onlineMutex.Lock()
+	defer onlineMutex.Unlock()
 
 	roomUUID := ""
 
@@ -73,7 +84,6 @@ func UserInARoomUUID(userUUID string) string {
 			roomUUID = u.RoomUUID
 		}
 	}
-	onlineMutex.Unlock()
 
 	return roomUUID
 }
@@ -123,7 +133,7 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 		select {
 		case message, ok := <-s.Send:
 			if !ok {
-				log.Critical(ctx, herrors.New("Room no longer exists"))
+				log.Critical(ctx, herrors.New("Send channel is closed", "useruuid", u.UUID))
 				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -163,7 +173,10 @@ func (u *User) Writer(ctx context.Context, s *Socket) {
 // If socket disconnects - we need to close the socket not to have a memory leak
 func (u *User) Close(ctx context.Context, s *Socket) {
 	fmt.Println("Closing down disconnected websocket")
+
 	onlineMutex.Lock()
+	defer onlineMutex.Unlock()
+
 	for k, socket := range u.Sockets {
 		if socket.conn != s.conn {
 			continue
@@ -174,10 +187,8 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 
 	// If this is the last socket of the user - set a user inactive event in the room
 	if len(u.Sockets) == 0 && u.RoomUUID != "" {
-		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemUserInactive)}
+		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
 	}
-
-	onlineMutex.Unlock()
 
 	// Close the actual websocket
 	s.conn.Close()
@@ -187,6 +198,10 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 	switch cmd {
 	case SystemSearch:
 		// Enter search mode for user
+		if err := cleanUpRoom(u); err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+		}
+
 		searchAdd(u)
 	case SystemDisconnected:
 		// Disconnect from the current the conversation, but still part of a room until next search
@@ -195,10 +210,21 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 		// UpdateStatus(room[uuid], statusDisconnected)
 		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
 
-		// If someone disconnected - we don't have to have broadcast channel alive anymore - we clean it
-		if err := Close(u.RoomUUID); err != nil {
-			log.Critical(ctx, err)
+		if u.RoomUUID == "" {
+			log.Critical(ctx, herrors.New("User tried to disconnect without having a room set", "useruuid", u.UUID))
+			return
 		}
+
+		matcherMutex.Lock()
+		room, ok := rooms[u.RoomUUID]
+		if !ok {
+			matcherMutex.Unlock()
+			log.Critical(ctx, herrors.New("Failed to find a room", "roomuuid", u.RoomUUID))
+			return
+		}
+
+		room.Active = false
+		matcherMutex.Unlock()
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
 		log.Critical(ctx, err)
@@ -207,12 +233,41 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 
 func UpdateStatus(uuid string, status status) error {
 	onlineMutex.Lock()
+	defer onlineMutex.Unlock()
+
 	if _, ok := usersSocketsMap[uuid]; !ok {
 		return herrors.New("Could not find user with UUID in userSocketsMap", "uuid", uuid)
 	}
 
 	usersSocketsMap[uuid].Status = status
-	onlineMutex.Unlock()
+
+	return nil
+}
+
+func cleanUpRoom(u *User) error {
+	// User was previously in a conversation. If they are the last to leave - we can close the old rooms broadcast
+	// channel already and remove the room from the room map
+	if u.RoomUUID == "" {
+		return nil
+	}
+
+	if err := RoomRemoveUser(u.RoomUUID, u.UUID); err != nil {
+		return herrors.Wrap(err)
+	}
+
+	allDced, err := IsAllRoomUsersDisconnected(u.RoomUUID)
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	// If there are still users in that room - we don't want to close it yet
+	if !allDced {
+		return nil
+	}
+
+	if err := CloseRoom(u.RoomUUID); err != nil {
+		return herrors.Wrap(err)
+	}
 
 	return nil
 }

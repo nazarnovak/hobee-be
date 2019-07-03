@@ -9,22 +9,31 @@ import (
 type MessageType string
 
 const (
-	MessageTypeSystem MessageType = "s"
-
+	MessageTypeActivity MessageType = "a"
 	MessageTypeChatting MessageType = "c"
-	MessageTypeOwn      MessageType = "o"
-	MessageTypeBuddy    MessageType = "b"
+	MessageTypeSystem   MessageType = "s"
+	MessageTypeResult   MessageType = "r"
+
+	// ChattingBuddy
+	// ChattingOwn
+	MessageTypeOwn   MessageType = "o"
+	MessageTypeBuddy MessageType = "b"
 
 	SystemSearch       = "s"
 	SystemConnected    = "c"
 	SystemDisconnected = "d"
+	SystemCloseRoom    = "cr"
 
-	SystemUserActive   = "ua"
-	SystemUserInactive = "ui"
+	ActivityUserActive   = "ua"
+	ActivityUserInactive = "ui"
+	ActivityRoomActive   = "ra"
+	ActivityRoomInactive = "ri"
 
-	// Room related system messages
-	SystemRoomActive   = "ra"
-	SystemRoomInactive = "ri"
+	//ResultLike = "rl"
+	//ResultDislike = "rd"
+	//
+	//ResultReportOther = "r0"
+	//ResultReportHarassment = "r1"
 
 	// Time allowed to write a message to the peer.
 	writeWait = 60 * time.Second

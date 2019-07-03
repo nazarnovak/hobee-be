@@ -130,18 +130,24 @@ func (r *Room) Broadcaster() {
 	ctx := context.Background()
 
 	for {
-		// Break the loop once we mark the room as inactive, or closed with the conversations. Nothing should be
-		// broadcasted after that
-		if r.Active == false {
-			break
-		}
-
 		select {
 		case b := <-r.Broadcast:
 			// TODO: Even tho the messages are already saved here, if there's an error happening it might cause
 			// inconsistencies, so for example it will save an unknown type of a message, or someone might send a message,
 			// and when trying to broadcast the message back to them there might be an error, so they'll try again and
 			// that will duplicate the message
+
+			// We received a signal that we will close this room since it's not used anymore - stop the looping now
+			if b.Type == MessageTypeSystem && string(b.Text) == SystemCloseRoom {
+				break
+			}
+
+			// Removing messageTypeSystem will break the flow (investigate), need to add like/report type here too for
+			// results
+			if !r.Active && b.Type != MessageTypeSystem {
+				continue
+			}
+
 			roomMessagesMutex.Lock()
 			msg := Message{
 				Type:       b.Type,
@@ -159,6 +165,11 @@ func (r *Room) Broadcaster() {
 			roomMessagesMutex.Unlock()
 
 			for _, user := range r.Users {
+				// User might be nil when they already went searching for a new conversation
+				if user == nil {
+					continue
+				}
+
 				for _, socket := range user.Sockets {
 					switch {
 					case b.Type == MessageTypeChatting:
@@ -178,8 +189,7 @@ func (r *Room) Broadcaster() {
 						socket.Send <- o
 					case b.Type == MessageTypeSystem:
 						// Maybe this will error twice? Since we're ranging through all the sockets in a room
-						if string(b.Text) != SystemConnected && string(b.Text) != SystemDisconnected &&
-							string(b.Text) != SystemUserActive && string(b.Text) != SystemUserInactive {
+						if string(b.Text) != SystemConnected && string(b.Text) != SystemDisconnected {
 							log.Critical(ctx, herrors.New("Unknown system message text", "text", string(b.Text)))
 							continue
 						}
@@ -191,29 +201,37 @@ func (r *Room) Broadcaster() {
 						}
 
 						socket.Send <- o
+					case b.Type == MessageTypeActivity:
+						o, err := json.Marshal(msg)
+						if err != nil {
+							log.Critical(ctx, err)
+							continue
+						}
+
+						socket.Send <- o
 					default:
 						log.Critical(ctx, herrors.New("Unknown type passed to the broadcaster", "type", b.Type))
 					}
-
 				}
 			}
 		}
 	}
 }
 
-// Close closes the rooms broadcast channel, since there is no need for that anymore.
-func Close(uuid string) error {
+// CloseRoom closes the rooms broadcast channel, since there is no need for that anymore.
+func CloseRoom(uuid string) error {
 	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
 
 	room, ok := rooms[uuid]
 	if !ok {
 		return herrors.New("Failed to find a room", "uuid", uuid)
 	}
 
-	room.Active = false
-	close(room.Broadcast)
+	room.Broadcast <- Broadcast{UUID: "", Type: MessageTypeSystem, Text: []byte(SystemCloseRoom)}
 
-	matcherMutex.Unlock()
+	close(room.Broadcast)
+	delete(rooms, uuid)
 
 	return nil
 }
@@ -248,6 +266,7 @@ func RoomMessages(uuid string) ([]Message, error) {
 
 func IsRoomActive(uuid string) (bool, error) {
 	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
 
 	room, ok := rooms[uuid]
 	if !ok {
@@ -255,9 +274,64 @@ func IsRoomActive(uuid string) (bool, error) {
 			"uuid", uuid)
 	}
 
-	matcherMutex.Unlock()
-
 	return room.Active, nil
+}
+
+func GetRoomBroadcastChannel(uuid string) (chan<- Broadcast, error) {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[uuid]
+	if !ok {
+		return nil, herrors.New("Failed to find a room", "roomuuid", uuid)
+	}
+
+	return room.Broadcast, nil
+}
+
+func RoomRemoveUser(roomuuid, useruuid string) error {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[roomuuid]
+	if !ok {
+		return herrors.New("Failed to find a room", "roomuuid", roomuuid)
+	}
+
+	for k, u := range room.Users {
+		if u == nil {
+			continue
+		}
+
+		if u.UUID != useruuid {
+			continue
+		}
+
+		room.Users[k] = nil
+	}
+
+	return nil
+}
+
+func IsAllRoomUsersDisconnected(uuid string) (bool, error) {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[uuid]
+	if !ok {
+		return false, herrors.New("Failed to find a room", "roomuuid", uuid)
+	}
+
+	disconnected := true
+
+	for _, u := range room.Users {
+		if u != nil {
+			disconnected = false
+			break
+		}
+	}
+
+	return disconnected, nil
 }
 
 //func Close(id string) {

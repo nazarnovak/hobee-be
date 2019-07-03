@@ -78,9 +78,8 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 			Timestamp:  time.Now().UTC(),
 		}
 
-		// If we don't find user in existing rooms - we notify FE about it and "allow" it to go into search mode
 		roomUUID := socket.UserInARoomUUID(uuidStr)
-
+		// If we don't find user in existing rooms - we notify FE about it and "allow" it to go into search mode
 		if roomUUID != "" {
 			active, err := socket.IsRoomActive(roomUUID)
 			if err != nil {
@@ -89,14 +88,11 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 				return
 			}
 
-			msg.Text = socket.SystemRoomActive
+			msg.Type = socket.MessageTypeActivity
+			msg.Text = socket.ActivityRoomActive
 			if !active {
-				msg.Text = socket.SystemRoomInactive
-
+				msg.Text = socket.ActivityRoomInactive
 			}
-
-			// If this is the only UUID that is online now - then we need to send a new system message on the room like
-			// "s","ua"
 		}
 
 		o, err := json.Marshal(msg)
@@ -107,58 +103,58 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 
 		s.Send <- o
 return
-		ch := make(chan string)
-
-		// Reading messages
-		go func(chOut chan<- string) {
-			//for {
-				//var msg *message.WSMessage
-				//err := c.ReadJSON(&msg)
-				//// TODO:2017/04/19 22:44:18 main3.go:135: Read error: websocket: close 1006 (abnormal closure): unexpected EOF
-				//if err != nil {
-				//	println("ws:", err.Error())
-				//	return
-				//}
-				//println(msg.Type, msg.Text)
-				//switch msg.Type {
-				//case hconst.SYSTEM_MESSAGE:
-				//	handleSystemMessage(u, msg.Message)
-				//case hconst.OWN_MESSAGE:
-				//	if u.RoomID == "" {
-				//		continue
-				//	}
-				//
-				//	err = rooms.Broadcast(u, msg.Message)
-				//	if err != nil {
-				//		log.Error(r.Context(), herrors.Wrap(err, "ctx", "Write error"))
-				//		continue
-				//	}
-				//}
-			//}
-		}(ch)
-		// Send a test message in 5
-		go func() {
-			time.Sleep(time.Second * 2)
-			out := socket.Message{
-				Type: "s",
-				Text: "c",
-			}
-
-			j, err := json.Marshal(out)
-			if err != nil {
-				log.Critical(ctx, herrors.Wrap(err))
-				ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-				return
-			}
-			c.WriteMessage(websocket.TextMessage, j)
-		}()
-		// Writing messages
-		func(chIn <-chan string) {
-			for {
-				msg := <-chIn
-				fmt.Println("received message", msg)
-			}
-		}(ch)
+	//	ch := make(chan string)
+	//
+	//	// Reading messages
+	//	go func(chOut chan<- string) {
+	//		//for {
+	//			//var msg *message.WSMessage
+	//			//err := c.ReadJSON(&msg)
+	//			//// TODO:2017/04/19 22:44:18 main3.go:135: Read error: websocket: close 1006 (abnormal closure): unexpected EOF
+	//			//if err != nil {
+	//			//	println("ws:", err.Error())
+	//			//	return
+	//			//}
+	//			//println(msg.Type, msg.Text)
+	//			//switch msg.Type {
+	//			//case hconst.SYSTEM_MESSAGE:
+	//			//	handleSystemMessage(u, msg.Message)
+	//			//case hconst.OWN_MESSAGE:
+	//			//	if u.RoomID == "" {
+	//			//		continue
+	//			//	}
+	//			//
+	//			//	err = rooms.Broadcast(u, msg.Message)
+	//			//	if err != nil {
+	//			//		log.Error(r.Context(), herrors.Wrap(err, "ctx", "Write error"))
+	//			//		continue
+	//			//	}
+	//			//}
+	//		//}
+	//	}(ch)
+	//	// Send a test message in 5
+	//	go func() {
+	//		time.Sleep(time.Second * 2)
+	//		out := socket.Message{
+	//			Type: "s",
+	//			Text: "c",
+	//		}
+	//
+	//		j, err := json.Marshal(out)
+	//		if err != nil {
+	//			log.Critical(ctx, herrors.Wrap(err))
+	//			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+	//			return
+	//		}
+	//		c.WriteMessage(websocket.TextMessage, j)
+	//	}()
+	//	// Writing messages
+	//	func(chIn <-chan string) {
+	//		for {
+	//			msg := <-chIn
+	//			fmt.Println("received message", msg)
+	//		}
+	//	}(ch)
 	}
 }
 
