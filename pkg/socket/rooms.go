@@ -178,7 +178,7 @@ func (r *Room) Broadcaster() {
 							t = MessageTypeBuddy
 						}
 
-						msg.Type = t
+						msg.AuthorUUID = string(t)
 
 						o, err := json.Marshal(msg)
 						if err != nil {
@@ -194,6 +194,15 @@ func (r *Room) Broadcaster() {
 							continue
 						}
 
+						msg.AuthorUUID = string(MessageTypeSystem)
+
+						if string(b.Text) == SystemDisconnected {
+							msg.AuthorUUID = string(MessageTypeOwn)
+							if b.UUID != user.UUID {
+								msg.AuthorUUID = string(MessageTypeBuddy)
+							}
+						}
+
 						o, err := json.Marshal(msg)
 						if err != nil {
 							log.Critical(ctx, err)
@@ -202,6 +211,13 @@ func (r *Room) Broadcaster() {
 
 						socket.Send <- o
 					case b.Type == MessageTypeActivity:
+						t := MessageTypeOwn
+						if b.UUID != user.UUID {
+							t = MessageTypeBuddy
+						}
+
+						msg.AuthorUUID = string(t)
+
 						o, err := json.Marshal(msg)
 						if err != nil {
 							log.Critical(ctx, err)

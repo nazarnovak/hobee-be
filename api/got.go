@@ -74,7 +74,8 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 		msg := socket.Message{
 			Type: socket.MessageTypeSystem,
 			Text: socket.SystemSearch,
-			AuthorUUID: uuidStr,
+			AuthorUUID: string(socket.MessageTypeSystem), // We don't want to expose uuid here, and this is sent
+			// directly to the socket without broadcasting it to everyone
 			Timestamp:  time.Now().UTC(),
 		}
 

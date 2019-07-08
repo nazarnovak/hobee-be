@@ -49,17 +49,35 @@ func Messages(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// We're marking users own messages so FE understands how to sort it
+		// We're marking users own messages so FE understands how to sort it, with removing uuids
 		for k, msg := range msgs {
+			if msg.Type == socket.MessageTypeSystem {
+				msgs[k].AuthorUUID = string(socket.MessageTypeSystem)
+
+				if msg.Text == socket.SystemDisconnected {
+					msgs[k].AuthorUUID = string(socket.MessageTypeOwn)
+					if msg.AuthorUUID != uuidStr {
+						msgs[k].AuthorUUID = string(socket.MessageTypeBuddy)
+					}
+				}
+			}
+
+			if msg.Type == socket.MessageTypeActivity {
+				msgs[k].AuthorUUID = string(socket.MessageTypeOwn)
+				if msg.AuthorUUID != uuidStr {
+					msgs[k].AuthorUUID = string(socket.MessageTypeBuddy)
+				}
+			}
+
 			if msg.Type != socket.MessageTypeChatting {
 				continue
 			}
 
-			if msg.AuthorUUID == uuidStr {
-				msgs[k].Type = socket.MessageTypeOwn
+			msgs[k].AuthorUUID = string(socket.MessageTypeOwn)
+			if msg.AuthorUUID != uuidStr {
+				msgs[k].AuthorUUID = string(socket.MessageTypeBuddy)
 				continue
 			}
-			msgs[k].Type = socket.MessageTypeBuddy
 		}
 
 		o := MessagesResponse{

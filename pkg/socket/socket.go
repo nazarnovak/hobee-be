@@ -56,7 +56,7 @@ type Socket struct {
 }
 
 type Message struct {
-	AuthorUUID string
+	AuthorUUID string      `json:"authoruuid"`
 	Type       MessageType `json:"type"`
 	Text       string      `json:"text"`
 	Timestamp  time.Time   `json:"timestamp"`
