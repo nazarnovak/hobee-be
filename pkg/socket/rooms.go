@@ -157,7 +157,7 @@ func (r *Room) Broadcaster() {
 			}
 
 			// Do not add "typing" event to the room, Spammy McSpammerson
-			if b.Type != MessageTypeActivity && string(b.Text) != ActivityOwnTyping {
+			if !(b.Type == MessageTypeActivity && string(b.Text) == ActivityOwnTyping) {
 				r.Messages = append(r.Messages, msg)
 			}
 
