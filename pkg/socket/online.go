@@ -115,6 +115,13 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 			u.handleSystemMessage(ctx, s, msg.Text)
 		case MessageTypeOwn:
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeChatting, Text: []byte(msg.Text)}
+		case MessageTypeActivity:
+			if msg.Text != ActivityOwnTyping {
+				log.Critical(ctx, herrors.New("Unexpected activity message", "msg", msg))
+				continue
+			}
+
+			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(msg.Text)}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)

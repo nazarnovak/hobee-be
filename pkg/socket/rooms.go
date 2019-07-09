@@ -156,7 +156,10 @@ func (r *Room) Broadcaster() {
 				Timestamp:  time.Now().UTC(),
 			}
 
-			r.Messages = append(r.Messages, msg)
+			// Do not add "typing" event to the room, Spammy McSpammerson
+			if b.Type != MessageTypeActivity && string(b.Text) != ActivityOwnTyping {
+				r.Messages = append(r.Messages, msg)
+			}
 
 			// "Wipe" the author after adding it to the room, so it doesn't get exposed to FE (not like it matters,
 			// but yeah)
@@ -214,6 +217,11 @@ func (r *Room) Broadcaster() {
 						t := MessageTypeOwn
 						if b.UUID != user.UUID {
 							t = MessageTypeBuddy
+						}
+
+						// Don't send "typing" event to the user, who emitted it
+						if string(b.Text) == ActivityOwnTyping && t == MessageTypeOwn {
+							continue
 						}
 
 						msg.AuthorUUID = string(t)

@@ -26,6 +26,7 @@ const (
 
 	ActivityUserActive   = "ua"
 	ActivityUserInactive = "ui"
+	ActivityOwnTyping    = "t"
 	ActivityRoomActive   = "ra"
 	ActivityRoomInactive = "ri"
 
