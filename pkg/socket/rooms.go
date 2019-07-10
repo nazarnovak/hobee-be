@@ -14,35 +14,34 @@ import (
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
+type reportReason string
+
+var (
+	reasonSpam reportReason = "rsp"
+	reasonHarassing reportReason = "rha"
+	reasonRacism reportReason = "rra"
+	reasonSex reportReason = "rse"
+	reasonOther reportReason = "rot"
+
+	//allReasons = []reportReason{reasonSpam, reasonHarassing ...}
+)
+
 type Room struct {
 	ID        uuid.UUID
 	Messages  []Message
 	Broadcast chan Broadcast
 	Users     [2]*User
 	Active    bool
-	//Summaries [2]*Summary
+	Results   [2]*Result
+}
+
+type Result struct {
+	AuthorUUID string
+	Liked bool
+	Reported reportReason
 }
 
 // TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
-
-//type reportReason int
-//
-//var (
-//	reasonSpam reportReason = 0
-//	reasonHarassing reportReason = 1
-//	reasonRacism reportReason = 2
-//	reasonSex reportReason = 3
-//	reasonOther reportReason = 4
-//
-//	allReasons = []reportReason{reasonSpam, reasonHarassing ...}
-//
-//)
-//
-//type Summary struct {
-//	AuthorUUID string
-//	Liked bool
-//	Reported reportReason
-//}
 
 type Broadcast struct {
 	UUID string
@@ -97,6 +96,10 @@ func Rooms(matchedUsers <-chan [2]*User) {
 					Broadcast: bc,
 					Users:     [2]*User{users[0], users[1]},
 					Active:    true,
+					Results: [2]*Result{
+						{AuthorUUID: users[0].UUID},
+						{AuthorUUID: users[1].UUID},
+					},
 				}
 
 				rooms[roomID.String()] = room
@@ -356,6 +359,30 @@ func IsAllRoomUsersDisconnected(uuid string) (bool, error) {
 	}
 
 	return disconnected, nil
+}
+
+func SetRoomLike(roomuuid, useruuid string, liked bool) error {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[roomuuid]
+	if !ok {
+		return herrors.New("Failed to find a room", "roomuuid", roomuuid)
+	}
+
+	for k, r := range room.Results {
+		if r == nil {
+			continue
+		}
+
+		if r.AuthorUUID != useruuid {
+			continue
+		}
+
+		room.Results[k].Liked = liked
+	}
+
+	return nil
 }
 
 //func Close(id string) {

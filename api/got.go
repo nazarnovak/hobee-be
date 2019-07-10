@@ -25,7 +25,7 @@ var allowedOrigins = []string{
 	// Heroku
 	"https://hobee.herokuapp.com",
 	// Testing with ngrok
-	"https://b518cf15.ngrok.io",
+	"https://05d166b9.ngrok.io",
 }
 
 func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {

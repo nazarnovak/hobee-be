@@ -11,18 +11,8 @@ type MessageType string
 const (
 	MessageTypeActivity MessageType = "a"
 	MessageTypeChatting MessageType = "c"
-	MessageTypeSystem   MessageType = "s"
 	MessageTypeResult   MessageType = "r"
-
-	// ChattingBuddy
-	// ChattingOwn
-	MessageTypeOwn   MessageType = "o"
-	MessageTypeBuddy MessageType = "b"
-
-	SystemSearch       = "s"
-	SystemConnected    = "c"
-	SystemDisconnected = "d"
-	SystemCloseRoom    = "cr"
+	MessageTypeSystem   MessageType = "s"
 
 	ActivityUserActive   = "ua"
 	ActivityUserInactive = "ui"
@@ -30,11 +20,18 @@ const (
 	ActivityRoomActive   = "ra"
 	ActivityRoomInactive = "ri"
 
-	//ResultLike = "rl"
-	//ResultDislike = "rd"
-	//
-	//ResultReportOther = "r0"
-	//ResultReportHarassment = "r1"
+	MessageTypeOwn   MessageType = "o"
+	MessageTypeBuddy MessageType = "b"
+
+	ResultLike = "rl"
+	ResultDislike = "rd"
+	ResultReportOther = "rot"
+	ResultReportHarassment = "rha"
+
+	SystemSearch       = "s"
+	SystemConnected    = "c"
+	SystemDisconnected = "d"
+	SystemCloseRoom    = "cr"
 
 	// Time allowed to write a message to the peer.
 	writeWait = 60 * time.Second

@@ -122,6 +122,24 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 			}
 
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(msg.Text)}
+		case MessageTypeResult:
+			if msg.Text != ResultLike && msg.Text != ResultDislike {
+				log.Critical(ctx, herrors.New("Unexpected result message", "msg", msg))
+				continue
+			}
+
+			if msg.Text == ResultLike || msg.Text == ResultDislike {
+				liked := true
+
+				if msg.Text == ResultDislike {
+					liked = false
+				}
+
+				if err := SetRoomLike(u.RoomUUID, u.UUID, liked); err != nil {
+					log.Critical(ctx, herrors.New("Couldn't set a like on a room", "user", u, "msg", msg))
+					continue
+				}
+			}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)
