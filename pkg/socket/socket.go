@@ -23,10 +23,15 @@ const (
 	MessageTypeOwn   MessageType = "o"
 	MessageTypeBuddy MessageType = "b"
 
-	ResultLike = "rl"
+	ResultLike    = "rl"
 	ResultDislike = "rd"
-	ResultReportOther = "rot"
+
+	ResultReportDidntLike  = "rdl"
+	ResultReportSpam       = "rsp"
+	ResultReportSexism     = "rse"
 	ResultReportHarassment = "rha"
+	ResultReportRacism     = "rra"
+	ResultReportOther      = "rot"
 
 	SystemSearch       = "s"
 	SystemConnected    = "c"
@@ -46,6 +51,17 @@ const (
 	maxMessageSize = 1024
 )
 
+var (
+	allReportOptions = []string{
+		ResultReportDidntLike,
+		ResultReportSpam,
+		ResultReportSexism,
+		ResultReportHarassment,
+		ResultReportRacism,
+		ResultReportOther,
+	}
+)
+
 // socket represents a uuid and a websocket connection
 type Socket struct {
 	conn *websocket.Conn
@@ -62,4 +78,14 @@ type Message struct {
 
 func New(conn *websocket.Conn) *Socket {
 	return &Socket{conn: conn, Send: make(chan []byte)}
+}
+
+func isReportOption(option string) bool {
+	for _, o := range allReportOptions {
+		if option == o {
+			return true
+		}
+	}
+
+	return false
 }

@@ -385,6 +385,30 @@ func SetRoomLike(roomuuid, useruuid string, liked bool) error {
 	return nil
 }
 
+func SetRoomReport(roomuuid, useruuid string, reason reportReason) error {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[roomuuid]
+	if !ok {
+		return herrors.New("Failed to find a room", "roomuuid", roomuuid)
+	}
+
+	for k, r := range room.Results {
+		if r == nil {
+			continue
+		}
+
+		if r.AuthorUUID != useruuid {
+			continue
+		}
+
+		room.Results[k].Reported = reason
+	}
+
+	return nil
+}
+
 //func Close(id string) {
 //	// TODO: Add actual context here?
 //	ctx := context.Background()
