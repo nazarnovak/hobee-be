@@ -1,8 +1,12 @@
 package socket
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"github.com/nazarnovak/hobee-be/pkg/herrors"
+	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
 var (
@@ -42,6 +46,12 @@ func getMatchingUsers(sp chan<- [2]*User) {
 	for _, searchingUser := range searchingUsers {
 		if matched > 1 {
 			break
+		}
+
+		if searchingUser.Status != statusSearching {
+			log.Critical(context.Background(), herrors.New("Expecting user status to be searching", "status",
+				searchingUser.Status))
+			continue
 		}
 
 		matchedUsers[matched] = searchingUser

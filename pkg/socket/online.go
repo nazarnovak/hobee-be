@@ -147,7 +147,7 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 			// Otherwise it's a report
 			if err := SetRoomReport(u.RoomUUID, u.UUID, reportReason(msg.Text)); err != nil {
 				log.Critical(ctx, herrors.New("Couldn't set a like on a room", "user", u, "msg", msg))
-					continue
+				continue
 			}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
@@ -220,8 +220,12 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 	}
 
 	// If this is the last socket of the user - set a user inactive event in the room
-	if len(u.Sockets) == 0 && u.RoomUUID != "" {
-		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
+	if len(u.Sockets) == 0 {
+		u.Status = statusDisconnected
+		searchRemove(u.UUID)
+		if u.RoomUUID != "" {
+			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
+		}
 	}
 
 	// Close the actual websocket
