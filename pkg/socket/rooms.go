@@ -118,6 +118,15 @@ func Rooms(matchedUsers <-chan [2]*User) {
 				go room.Broadcaster()
 
 				room.Broadcast <- Broadcast{UUID: "", Type: MessageTypeSystem, Text: []byte(SystemConnected)}
+
+				// If someone went into search mode and closed the tab - inform the other user that the buddy is offline
+				if len(users[0].Sockets) == 0 {
+					room.Broadcast <- Broadcast{UUID: users[0].UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
+				}
+
+				if len(users[1].Sockets) == 0 {
+					room.Broadcast <- Broadcast{UUID: users[1].UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
+				}
 			}
 		}
 	}()

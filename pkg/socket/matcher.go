@@ -51,12 +51,12 @@ func getMatchingUsers(sp chan<- [2]*User) {
 		//	continue
 		//}
 
-		if matchedUsers[0] != nil && len(matchedUsers[0].UserHistory) > 0 {
+		//if matchedUsers[0] != nil && len(matchedUsers[0].UserHistory) > 0 {
 			// TODO: Do not match with the last peerson the user had a conversation with
 			//if matchedUsers[0].UserHistory[0] == searchingUser.UUID {
 			//	continue
 			//}
-		}
+		//}
 
 		matchedUsers[matched] = searchingUser
 		matched++
