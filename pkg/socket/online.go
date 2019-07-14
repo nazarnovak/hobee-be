@@ -42,6 +42,9 @@ type User struct {
 
 	// The latest users uuids that this user had a conversation with
 	//UserHistory []string
+
+	// The latest room uuids that this user was a part of
+	RoomHistory []string
 }
 
 // attachSocketToUser attaches one of the sockets to an existing user in the map (which is sort of like online), or
@@ -267,6 +270,12 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 
 		room.Active = false
 		matcherMutex.Unlock()
+
+		// Save the chat into a file
+		if err := room.SaveMessages(); err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			return
+		}
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
 		log.Critical(ctx, err)
@@ -284,6 +293,17 @@ func UpdateStatus(uuid string, status status) error {
 	usersSocketsMap[uuid].Status = status
 
 	return nil
+}
+
+func UserRoomHistory(uuid string) ([]string, error) {
+	onlineMutex.Lock()
+	defer onlineMutex.Unlock()
+
+	if _, ok := usersSocketsMap[uuid]; !ok {
+		return nil, herrors.New("Could not find user with UUID in userSocketsMap", "uuid", uuid)
+	}
+
+	return usersSocketsMap[uuid].RoomHistory, nil
 }
 
 func cleanUpRoom(u *User) error {

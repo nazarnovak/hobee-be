@@ -71,6 +71,7 @@ func router(secret string) *web.Mux {
 	mux.Get("/api/identify", api.Identify(secret))
 	mux.Get("/api/got", api.GOT(secret))
 	mux.Get("/api/messages", api.Messages(secret))
+	mux.Get("/api/history", api.History(secret))
 	//mux.Get("/ws", controllers.WS(secret))
 
 	compiledFEFolder := "build"

@@ -2,9 +2,11 @@ package socket
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -17,11 +19,11 @@ import (
 type reportReason string
 
 var (
-	reasonSpam reportReason = "rsp"
+	reasonSpam      reportReason = "rsp"
 	reasonHarassing reportReason = "rha"
-	reasonRacism reportReason = "rra"
-	reasonSex reportReason = "rse"
-	reasonOther reportReason = "rot"
+	reasonRacism    reportReason = "rra"
+	reasonSex       reportReason = "rse"
+	reasonOther     reportReason = "rot"
 
 	//allReasons = []reportReason{reasonSpam, reasonHarassing ...}
 )
@@ -37,8 +39,8 @@ type Room struct {
 
 type Result struct {
 	AuthorUUID string
-	Liked bool
-	Reported reportReason
+	Liked      bool
+	Reported   reportReason
 }
 
 // TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
@@ -55,6 +57,52 @@ var (
 	roomMessagesMutex = &sync.Mutex{}
 	rooms             = map[string]*Room{}
 )
+
+func (r *Room) SaveMessages() error {
+	filename := fmt.Sprintf("%s.%s", r.ID.String(), "csv")
+
+	if exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename)); exists {
+		return herrors.New("Filename already exists", "roomuuid", r.ID.String())
+	}
+
+	file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+	defer file.Close()
+
+	rows := make([][]string, 0, len(r.Messages)+1)
+
+	// Headers
+	rows = append(rows, []string{"timestamp", "authoruuid", "type", "text"})
+
+	for _, msg := range r.Messages {
+		row := []string{msg.Timestamp.Format(time.RFC3339), msg.AuthorUUID, string(msg.Type), msg.Text}
+
+		rows = append(rows, row)
+	}
+
+	wr := csv.NewWriter(file)
+	wr.Comma = ';'
+
+	if err := wr.WriteAll(rows); err != nil {
+		return herrors.Wrap(err)
+	}
+	wr.Flush()
+
+	return nil
+}
+
+// FileExists reports whether the named file or directory exists.
+func FileExists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+
+	return true
+}
 
 func randStringRunes(n int) string {
 	b := make([]rune, n)
@@ -112,6 +160,9 @@ func Rooms(matchedUsers <-chan [2]*User) {
 				// TODO: Do not match with the last peerson the user had a conversation with
 				// We add the user to the other users history
 				//users[0].UserHistory, users[1].UserHistory = []string{users[1].UUID}, []string{users[0].UUID}
+
+				addRoomToUserRoomHistory(users[0], roomID.String())
+				addRoomToUserRoomHistory(users[1], roomID.String())
 
 				fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
@@ -420,6 +471,18 @@ func SetRoomReport(roomuuid, useruuid string, reason reportReason) error {
 	}
 
 	return nil
+}
+
+func addRoomToUserRoomHistory(user *User, roomuuid string) {
+	user.RoomHistory = append(user.RoomHistory, roomuuid)
+
+	// We only want to start with the latest 3 conversations you had, so truncate other rooms
+	if len(user.RoomHistory) > 3 {
+		// Remove the oldest room from history
+		user.RoomHistory = append(user.RoomHistory[:0], user.RoomHistory[1:]...)
+	}
+
+	return
 }
 
 //func Close(id string) {
