@@ -1,12 +1,8 @@
 package socket
 
 import (
-	"context"
 	"fmt"
 	"time"
-
-	"github.com/nazarnovak/hobee-be/pkg/herrors"
-	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
 var (
@@ -48,14 +44,27 @@ func getMatchingUsers(sp chan<- [2]*User) {
 			break
 		}
 
-		if searchingUser.Status != statusSearching {
-			log.Critical(context.Background(), herrors.New("Expecting user status to be searching", "status",
-				searchingUser.Status))
-			continue
+		// TODO: This removes user when they go into search and then close all tabs. Maybe worth leaving for now
+		//if searchingUser.Status != statusSearching {
+		//	log.Critical(context.Background(), herrors.New("Expecting user status to be searching", "status",
+		//		searchingUser.Status))
+		//	continue
+		//}
+
+		if matchedUsers[0] != nil && len(matchedUsers[0].UserHistory) > 0 {
+			// TODO: Do not match with the last peerson the user had a conversation with
+			//if matchedUsers[0].UserHistory[0] == searchingUser.UUID {
+			//	continue
+			//}
 		}
 
 		matchedUsers[matched] = searchingUser
 		matched++
+	}
+
+	// We couldn't pair anyone together, return
+	if matched < 2 {
+		return
 	}
 
 	sp <- matchedUsers

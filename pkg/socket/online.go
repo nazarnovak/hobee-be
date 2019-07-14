@@ -39,6 +39,9 @@ type User struct {
 	RoomUUID string
 
 	Status status
+
+	// The latest users uuids that this user had a conversation with
+	//UserHistory []string
 }
 
 // attachSocketToUser attaches one of the sockets to an existing user in the map (which is sort of like online), or
@@ -221,8 +224,9 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 
 	// If this is the last socket of the user - set a user inactive event in the room
 	if len(u.Sockets) == 0 {
-		u.Status = statusDisconnected
-		searchRemove(u.UUID)
+		// TODO: This removes user when they go into search and then close all tabs. Maybe worth leaving for now
+		//u.Status = statusDisconnected
+		//searchRemove(u.UUID)
 		if u.RoomUUID != "" {
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
 		}

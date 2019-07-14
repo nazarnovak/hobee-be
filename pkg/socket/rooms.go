@@ -109,6 +109,10 @@ func Rooms(matchedUsers <-chan [2]*User) {
 
 				matcherMutex.Unlock()
 
+				// TODO: Do not match with the last peerson the user had a conversation with
+				// We add the user to the other users history
+				//users[0].UserHistory, users[1].UserHistory = []string{users[1].UUID}, []string{users[0].UUID}
+
 				fmt.Printf("Got 2 sockets in room: %s\n", roomID)
 
 				go room.Broadcaster()
