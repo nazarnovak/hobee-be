@@ -38,9 +38,9 @@ type Room struct {
 }
 
 type Result struct {
-	AuthorUUID string
-	Liked      bool
-	Reported   reportReason
+	AuthorUUID string `json:"-"`
+	Liked      bool `json:"liked"`
+	Reported   reportReason `json:"reported"`
 }
 
 // TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
@@ -329,13 +329,12 @@ func CloseRoom(uuid string) error {
 
 func RoomMessages(uuid string) ([]Message, error) {
 	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
 
 	room, ok := rooms[uuid]
 	if !ok {
 		return nil, herrors.New("Failed to find a room", "uuid", uuid)
 	}
-
-	matcherMutex.Unlock()
 
 	// We need to make a separate copy of the messages, since if we don't want to change anything in the original struct
 	// to meddle with original data
@@ -483,6 +482,27 @@ func addRoomToUserRoomHistory(user *User, roomuuid string) {
 	}
 
 	return
+}
+
+func GetRoomUserResults(roomuuid, useruuid string) (*Result, error) {
+	matcherMutex.Lock()
+	defer matcherMutex.Unlock()
+
+	room, ok := rooms[roomuuid]
+	if !ok {
+		return nil, herrors.New("Failed to find a room", "roomuuid", roomuuid)
+	}
+
+	for _, result := range room.Results {
+		if result.AuthorUUID != useruuid {
+			continue
+		}
+
+		return result, nil
+	}
+
+	return nil, herrors.New("Could not find user results in a room", "roomuuid", roomuuid,
+		"useruuid", useruuid)
 }
 
 //func Close(id string) {
