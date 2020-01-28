@@ -1,2 +1,1 @@
-web: bin/hobee-be
-heroku ps:scale web=1
+web: bin/go-getting-started
