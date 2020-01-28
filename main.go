@@ -7,6 +7,7 @@ import (
 	"github.com/nazarnovak/hobee-be/config"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 	"github.com/nazarnovak/hobee-be/pkg/socket"
+	"github.com/nazarnovak/hobee-be/pkg/email"
 )
 
 /*
@@ -45,7 +46,12 @@ func main() {
 	}
 
 	if err := log.Init(c.Log.Out); err != nil {
-		fmt.Printf("Config init fail: %s", err.Error())
+		fmt.Printf("Log init fail: %s", err.Error())
+		return
+	}
+
+	if err := email.Init(c.Email.ApiKey, c.Email.Domain); err != nil {
+		fmt.Printf("Email init fail: %s", err.Error())
 		return
 	}
 

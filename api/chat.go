@@ -21,14 +21,14 @@ var upgrader = websocket.Upgrader{
 // Prevents requests from random sites directly to handshake with WS
 var allowedOrigins = []string{
 	// Local
-	"http://localhost:8080",
+	"http://localhost",
 	// Heroku
 	"https://hobee.herokuapp.com",
 	// Testing with ngrok
 	"https://ed82269a.ngrok.io",
 }
 
-func GOT(secret string) func(w http.ResponseWriter, r *http.Request) {
+func Chat(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 

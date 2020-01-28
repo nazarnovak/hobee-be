@@ -129,11 +129,6 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(msg.Text)}
 		case MessageTypeResult:
-			if msg.Text != ResultLike && msg.Text != ResultDislike && !isReportOption(msg.Text) {
-				log.Critical(ctx, herrors.New("Unexpected result message", "msg", msg))
-				continue
-			}
-
 			// Likes
 			if msg.Text == ResultLike || msg.Text == ResultDislike {
 				liked := true
@@ -143,18 +138,31 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 				}
 
 				if err := SetRoomLike(u.RoomUUID, u.UUID, liked); err != nil {
+					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+					continue
+				}
+
+				if err := saveResultLikeCSV(u.RoomUUID, u.UUID, liked); err != nil {
+					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+					continue
+				}
+				continue
+			}
+
+			if isReportOption(msg.Text) {
+				if err := SetRoomReport(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
 					log.Critical(ctx, herrors.New("Couldn't set a like on a room", "user", u, "msg", msg))
 					continue
 				}
 
+				if err := saveResultReportedCSV(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
+					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+					continue
+				}
 				continue
 			}
 
-			// Otherwise it's a report
-			if err := SetRoomReport(u.RoomUUID, u.UUID, reportReason(msg.Text)); err != nil {
-				log.Critical(ctx, herrors.New("Couldn't set a like on a room", "user", u, "msg", msg))
-				continue
-			}
+			log.Critical(ctx, herrors.New("Unexpected result message", "msg", msg))
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)

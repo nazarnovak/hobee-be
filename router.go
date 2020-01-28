@@ -69,52 +69,26 @@ func router(secret string) *web.Mux {
 	//	mux.Get("/test/logout", api.TestLogout(secret))
 
 	mux.Get("/api/identify", api.Identify(secret))
-	mux.Get("/api/got", api.GOT(secret))
+	mux.Get("/api/chat", api.Chat(secret))
 	mux.Get("/api/messages", api.Messages(secret))
 	mux.Get("/api/result", api.Result(secret))
 	mux.Get("/api/history", api.History(secret))
-	//mux.Get("/ws", controllers.WS(secret))
+	mux.Post("/api/contact", api.Contact(secret))
 
 	compiledFEFolder := "build"
 
-	//staticFiles, err := getStaticFiles(compiledFEFolder)
-	//if err != nil {
-	//	log.Critical(context.Background(), err)
-	//}
-	//
-	//for _, staticFile := range staticFiles {
-	//	headers := map[string]string{}
-	//	fmt.Println(staticFile)
-	//	//if strings.HasSuffix(staticFile, ".css") {
-	//	//	headers = map[string]string{
-	//	//		"Content-Type": "text/css",
-	//	//	}
-	//	//}
-	//	//if strings.HasSuffix(staticFile, ".js") {
-	//	//	headers = map[string]string{
-	//	//		"Content-Type": "text/javascript",
-	//	//	}
-	//	//}
-	//
-	//	staticFileFn := func(headers map[string]string) func(w http.ResponseWriter, r *http.Request) {
-	//		return func(w http.ResponseWriter, r *http.Request) {
-	//			for header, value := range headers {
-	//				w.Header().Set(header, value)
-	//			}
-	//
-	//			http.ServeFile(w, r, fmt.Sprintf("%s%s", compiledFEFolder, staticFile))
-	//		}
-	//	}
-	//
-	//	mux.Get(staticFile, staticFileFn(headers))
-	//}
-	//
-	// Check if the files I have in the folder and if it matches - serve it, otherwise default to index.html
-	mux.Handle("/got", func(w http.ResponseWriter, r *http.Request) {
+	staticFiles, err := getStaticFiles(compiledFEFolder)
+	if err != nil {
+		log.Critical(context.Background(), err)
+	}
+
+	for _, staticFile := range staticFiles {
+		mux.Handle(staticFile, http.FileServer(http.Dir(compiledFEFolder)))
+	}
+
+	mux.Handle("/*", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, fmt.Sprintf("%s/%s", compiledFEFolder, "index.html"))
 	})
-
-	mux.Handle("/*", http.FileServer(http.Dir(compiledFEFolder)))
 
 	return mux
 }

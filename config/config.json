@@ -1,10 +1,14 @@
 {
-  "port": ":8080",
+  "port": ":80",
   "log": {
     "out": "stderr"
   },
   "db": {
       "connection": "postgres://nazar@localhost/hobee?sslmode=disable"
   },
-  "secret": "supersecret1"
+  "secret": "supersecret1",
+  "email": {
+    "apikey": "988afe2b20c6f2dd9cf3d9bace167880-074fa10c-23e83c68",
+    "domain": "sandboxc82077688c034509a3f1dd726b9ae90f.mailgun.org"
+  }
 }

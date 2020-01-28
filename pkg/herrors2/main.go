@@ -28,12 +28,6 @@ func (e Error) String() string {
 	return fmt.Sprintf("%s: %s", e.error.Error(), e.prettyStack)
 }
 
-//type stackFrame struct {
-//	Filename string
-//	Method   string
-//	Line     int
-//}
-
 func Wrap(err error, keyVals ...interface{}) error {
 	e := Error{}
 
@@ -72,14 +66,6 @@ func getCallerPrettyStack() string {
 
 	return fmt.Sprintf("%s:%d\t%s()\n", file, line, fnName)
 }
-
-//func WrappedNew(msg string, keyVals ...interface{}) error {
-//	return Wrap(New(msg, keyVals...))
-//}
-//
-//func (e Error) PrettyStack() string {
-//	return e.prettyStack
-//}
 
 func (e Error) KeyVals() map[string]interface{} {
 	if e.keyVals == nil {

@@ -6,6 +6,7 @@ import (
 	"github.com/nazarnovak/hobee-be/pkg/socket"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
@@ -13,7 +14,13 @@ import (
 )
 
 type HistoryResponse struct {
-	Rooms map[string][]socket.Message `json:"rooms"`
+	ChatsHistory []ChatHistory `json:"chats"`
+}
+
+type ChatHistory struct {
+	Messages []socket.Message `json:"messages"`
+	Result   socket.Result    `json:"result"`
+	Duration string           `json:"duration"`
 }
 
 func History(secret string) func(w http.ResponseWriter, r *http.Request) {
@@ -39,83 +46,154 @@ func History(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		o := HistoryResponse{
+			ChatsHistory: []ChatHistory{},
+		}
+
 		roomHistory, err := socket.UserRoomHistory(uuidStr)
 		if err != nil {
-			log.Critical(ctx, err)
-			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			// User doesn't have chats yet, return empty object
+			responseJSONObject(ctx, w, o)
 			return
 		}
 
-		o := HistoryResponse{
-			Rooms: map[string][]socket.Message{},
-		}
-
-		errorCount := 0
 		for _, roomUUID := range roomHistory {
-			// Open the csv file and get the messages
-			file, err := os.OpenFile(fmt.Sprintf("%s/%s.csv", "chats", roomUUID), os.O_RDONLY, 0777)
+			messages, err := getRoomMessages(roomUUID)
 			if err != nil {
-				errorCount++
-				continue
-			}
-			defer file.Close()
-
-			csvReader := csv.NewReader(file)
-			csvReader.Comma = ';'
-			csvReader.LazyQuotes = true
-
-			records, err := csvReader.ReadAll()
-			if err != nil {
-				log.Critical(ctx, herrors.Wrap(err))
+				log.Critical(ctx, err)
 				continue
 			}
 
-			// Skip header line
-			records = append(records[:0], records[1:]...)
-
-			messages, err := recordsToMessages(records)
+			result, err := getRoomResult(roomUUID, uuidStr)
 			if err != nil {
-				log.Critical(ctx, herrors.Wrap(err, "roomuuid", roomUUID))
+				log.Critical(ctx, err)
 				continue
 			}
 
-			//o.Rooms[roomUUID] = make([]socket.Message, 0, len(messages))
-			o.Rooms[roomUUID] = messages
-		}
+			dur := getChatDuration(messages)
 
-		if errorCount > 1 {
-			log.Critical(ctx, herrors.New("Couldn't open some files to view chat history", "roomuuids",
-				roomHistory))
-		}
-
-		// All 3 files couldn't be opened, we just return internal error
-		if errorCount == 3 {
-			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-			return
+			c := ChatHistory{
+				Messages: messages,
+				Result: result,
+				Duration: dur,
+			}
+			o.ChatsHistory = append(o.ChatsHistory, c)
 		}
 
 		responseJSONObject(ctx, w, o)
 	}
 }
 
-func recordsToMessages(records [][]string) ([]socket.Message, error) {
+func getRoomMessages(roomuuid string) ([]socket.Message, error) {
+	filepath := fmt.Sprintf("%s/%s.csv", "chats", roomuuid)
+
+	// Open the csv file and get the messages
+	file, err := os.OpenFile(filepath, os.O_RDONLY, 0777)
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+	defer file.Close()
+
+	csvReader := csv.NewReader(file)
+	csvReader.Comma = ';'
+	csvReader.LazyQuotes = true
+
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	if len(rows) < 1 {
+		return nil, herrors.New("Expecting at least 1 record in the csv", "roomuuid", roomuuid)
+	}
+
+	// Skip header line
+	rows = append(rows[:0], rows[1:]...)
+
+	messages, err := rowsToMessages(rows)
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	return messages, nil
+}
+
+func rowsToMessages(rows [][]string) ([]socket.Message, error) {
 	msgs := []socket.Message{}
 
-	for _, record := range records {
-		ts, err := time.Parse(time.RFC3339, record[0])
+	for _, row := range rows {
+		ts, err := time.Parse(time.RFC3339, row[0])
 		if err != nil {
 			return nil, herrors.Wrap(err)
 		}
 
 		msg := socket.Message{
-			AuthorUUID: record[1],
-			Type: socket.MessageType(record[2]),
-			Text: record[3],
-			Timestamp: ts,
+			AuthorUUID: row[1],
+			Type:       socket.MessageType(row[2]),
+			Text:       row[3],
+			Timestamp:  ts,
 		}
 
 		msgs = append(msgs, msg)
 	}
 
 	return msgs, nil
+}
+
+func getRoomResult(roomuuid, useruuid string) (socket.Result, error) {
+	// Open the csv file and get the messages
+	filepath := fmt.Sprintf("%s/%s:%s.csv", "chats", roomuuid, useruuid)
+
+	// If results don't exist - it means the current user didn't like or report the conversation - return default values
+	if exists := socket.FileExists(filepath); !exists {
+		return socket.Result{}, nil
+	}
+
+	file, err := os.OpenFile(filepath, os.O_RDONLY, 0777)
+	if err != nil {
+		return socket.Result{}, herrors.Wrap(err)
+	}
+	defer file.Close()
+
+	csvReader := csv.NewReader(file)
+	csvReader.Comma = ';'
+	csvReader.LazyQuotes = true
+
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		return socket.Result{}, herrors.Wrap(err)
+	}
+
+	if len(rows) != 2 {
+		return socket.Result{}, herrors.New("Expecting 2 rows in the csv", "roomuuid", roomuuid)
+	}
+
+	liked, err := strconv.ParseBool(rows[1][0])
+	if err != nil {
+		return socket.Result{}, herrors.Wrap(err)
+	}
+
+	r := socket.Result{
+		Liked:    liked,
+		Reported: socket.ReportReason(rows[1][1]),
+	}
+
+	return r, nil
+}
+
+func getChatDuration(msgs []socket.Message) string {
+	if len(msgs) < 1 {
+		return "0s"
+	}
+
+	l := len(msgs)
+
+	// Subtract from the last message timestamp - first message timestamp
+	d := msgs[l-1].Timestamp.Sub(msgs[0].Timestamp)
+
+	if d.Hours() > 1 {
+		return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes()))
+	}
+
+	return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds()))
 }

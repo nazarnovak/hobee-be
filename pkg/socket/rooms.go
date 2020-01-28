@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,16 +17,16 @@ import (
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
-type reportReason string
+type ReportReason string
 
 var (
-	reasonSpam      reportReason = "rsp"
-	reasonHarassing reportReason = "rha"
-	reasonRacism    reportReason = "rra"
-	reasonSex       reportReason = "rse"
-	reasonOther     reportReason = "rot"
+	reasonSpam      ReportReason = "rsp"
+	reasonHarassing ReportReason = "rha"
+	reasonRacism    ReportReason = "rra"
+	reasonSex       ReportReason = "rse"
+	reasonOther     ReportReason = "rot"
 
-	//allReasons = []reportReason{reasonSpam, reasonHarassing ...}
+	//allReasons = []ReportReason{reasonSpam, reasonHarassing ...}
 )
 
 type Room struct {
@@ -40,7 +41,7 @@ type Room struct {
 type Result struct {
 	AuthorUUID string `json:"-"`
 	Liked      bool `json:"liked"`
-	Reported   reportReason `json:"reported"`
+	Reported   ReportReason `json:"reported"`
 }
 
 // TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
@@ -80,6 +81,154 @@ func (r *Room) SaveMessages() error {
 		row := []string{msg.Timestamp.Format(time.RFC3339), msg.AuthorUUID, string(msg.Type), msg.Text}
 
 		rows = append(rows, row)
+	}
+
+	wr := csv.NewWriter(file)
+	wr.Comma = ';'
+
+	if err := wr.WriteAll(rows); err != nil {
+		return herrors.Wrap(err)
+	}
+	wr.Flush()
+
+	return nil
+}
+
+func saveResultLikeCSV(roomuuid, useruuid string, liked bool) error {
+	filename := fmt.Sprintf("%s:%s.%s", roomuuid, useruuid, "csv")
+
+	exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename))
+	if !exists {
+		file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
+		if err != nil {
+			return herrors.Wrap(err)
+		}
+		defer file.Close()
+
+		// Always going to be 2 rows: headers + like/report
+		rows := make([][]string, 0, 2)
+
+		// Headers
+		rows = append(rows, []string{"liked", "reported"})
+
+		// The default value for reported is not reported - empty string
+		reported := ""
+
+		row := []string{strconv.FormatBool(liked), reported}
+		rows = append(rows, row)
+
+		wr := csv.NewWriter(file)
+		wr.Comma = ';'
+
+		if err := wr.WriteAll(rows); err != nil {
+			return herrors.Wrap(err)
+		}
+		wr.Flush()
+
+		return nil
+	}
+
+	// If file already exists - we'll only edit the field we need to change
+	// First we only read the values from the file
+	file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_RDONLY, 0777)
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	csvReader := csv.NewReader(file)
+	csvReader.Comma = ';'
+	csvReader.LazyQuotes = true
+
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	if len(rows) != 2 {
+		return herrors.New("Expecting 2 rows in the csv")
+	}
+
+	// Liked will be on the second row, first column
+	rows[1][0] = strconv.FormatBool(liked)
+
+	// Now we can truncate the file and write the new values
+	file, err = os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_WRONLY|os.O_TRUNC, 0777)
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	wr := csv.NewWriter(file)
+	wr.Comma = ';'
+
+	if err := wr.WriteAll(rows); err != nil {
+		return herrors.Wrap(err)
+	}
+	wr.Flush()
+
+	return nil
+}
+
+func saveResultReportedCSV(roomuuid, useruuid string, reported ReportReason) error {
+	filename := fmt.Sprintf("%s:%s.%s", roomuuid, useruuid, "csv")
+
+	exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename))
+	if !exists {
+		file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
+		if err != nil {
+			return herrors.Wrap(err)
+		}
+		defer file.Close()
+
+		// Always going to be 2 rows: headers + like/report
+		rows := make([][]string, 0, 2)
+
+		// Headers
+		rows = append(rows, []string{"liked", "reported"})
+
+		// The default value for liked is not liked - false
+		liked := false
+
+		row := []string{strconv.FormatBool(liked), string(reported)}
+		rows = append(rows, row)
+
+		wr := csv.NewWriter(file)
+		wr.Comma = ';'
+
+		if err := wr.WriteAll(rows); err != nil {
+			return herrors.Wrap(err)
+		}
+		wr.Flush()
+
+		return nil
+	}
+
+	// If file already exists - we'll only edit the field we need to change
+	// First we only read the values from the file
+	file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_RDONLY, 0777)
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	csvReader := csv.NewReader(file)
+	csvReader.Comma = ';'
+	csvReader.LazyQuotes = true
+
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		return herrors.Wrap(err)
+	}
+
+	if len(rows) != 2 {
+		return herrors.New("Expecting 2 rows in the csv")
+	}
+
+	// Reported will be on the second row, second column
+	rows[1][1] = string(reported)
+
+	// Now we can truncate the file and write the new values
+	file, err = os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_WRONLY|os.O_TRUNC, 0777)
+	if err != nil {
+		return herrors.Wrap(err)
 	}
 
 	wr := csv.NewWriter(file)
@@ -448,7 +597,7 @@ func SetRoomLike(roomuuid, useruuid string, liked bool) error {
 	return nil
 }
 
-func SetRoomReport(roomuuid, useruuid string, reason reportReason) error {
+func SetRoomReport(roomuuid, useruuid string, reason ReportReason) error {
 	matcherMutex.Lock()
 	defer matcherMutex.Unlock()
 
