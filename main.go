@@ -66,11 +66,13 @@ func main() {
 
 	socket.Rooms(usersPool)
 
-	port := ":" + os.Getenv("PORT")
+	port := os.Getenv("PORT")
 	if port == "" {
 		fmt.Println(("$PORT must be set"))
 		return
 	}
+
+	port = ":" + port
 
 	fmt.Println("Running on port", port)
 

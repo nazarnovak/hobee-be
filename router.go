@@ -77,18 +77,20 @@ func router(secret string) *web.Mux {
 
 	compiledFEFolder := "build"
 
-	staticFiles, err := getStaticFiles(compiledFEFolder)
-	if err != nil {
-		log.Critical(context.Background(), err)
-	}
-
-	for _, staticFile := range staticFiles {
-		mux.Handle(staticFile, http.FileServer(http.Dir(compiledFEFolder)))
-	}
-
-	mux.Handle("/*", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, fmt.Sprintf("%s/%s", compiledFEFolder, "index.html"))
-	})
+	// TODO: Temporary disable for deploys to work. Works locally tho
+	//staticFiles, err := getStaticFiles(compiledFEFolder)
+	//if err != nil {
+	//	log.Critical(context.Background(), err)
+	//}
+	//
+	//for _, staticFile := range staticFiles {
+	//	mux.Handle(staticFile, http.FileServer(http.Dir(compiledFEFolder)))
+	//}
+	//
+	//mux.Handle("/*", func(w http.ResponseWriter, r *http.Request) {
+	//	http.ServeFile(w, r, fmt.Sprintf("%s/%s", compiledFEFolder, "index.html"))
+	//})
+	mux.Handle("/*", http.FileServer(http.Dir(compiledFEFolder)))
 
 	return mux
 }
