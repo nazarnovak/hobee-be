@@ -2,11 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/nazarnovak/hobee-be/pkg/email"
-	"net/http"
-
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
+	"net/http"
+	//"github.com/nazarnovak/hobee-be/pkg/email"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
@@ -14,6 +12,26 @@ type ContactRequest struct {
 	Name    string `json:"name"`
 	Email   string `json:"email"`
 	Message string `json:"message"`
+}
+
+func (cr *ContactRequest) Validate() error {
+	if cr.Name == "" {
+		return herrors.New("Please provide your name")
+	}
+
+	if cr.Email == "" {
+		return herrors.New("Please provide your email")
+	}
+
+	if cr.Message == "" {
+		return herrors.New("Please provide your message")
+	}
+
+	if !emailValidationRegEx.MatchString(cr.Email) {
+		return herrors.New("Please provide a valid email")
+	}
+
+	return nil
 }
 
 func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
@@ -48,16 +66,19 @@ func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO: Validation of name/email/message
-
-		subject := "New feedback"
-		text := fmt.Sprintf("Name: %s\nEmail: %s\nMessage: %s\n", cr.Name, cr.Email, cr.Message)
-		if err := email.Send(subject, text); err != nil {
-			log.Critical(ctx, herrors.Wrap(err))
-			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+		if err := cr.Validate(); err != nil {
+			ResponseJSONError(ctx, w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		//responseJSONObject(ctx, w, o)
+		//subject := "New feedback"
+		//text := fmt.Sprintf("Name: %s\nEmail: %s\nMessage: %s\n", cr.Name, cr.Email, cr.Message)
+		//if err := email.Send(subject, text); err != nil {
+		//	log.Critical(ctx, herrors.Wrap(err))
+		//	ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+		//	return
+		//}
+
+		responseJSONSuccess(ctx, w)
 	}
 }
