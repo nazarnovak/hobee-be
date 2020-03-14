@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/nazarnovak/hobee-be/pkg/email"
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
 	"net/http"
 	//"github.com/nazarnovak/hobee-be/pkg/email"
@@ -45,12 +47,12 @@ func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
 		//}
 
 		// TODO: If user already logged in, save who was it?
-		//uuidStr, err := getCookieUUID(r, secret)
-		//if err != nil {
-		//	log.Critical(ctx, herrors.Wrap(err))
-		//	ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-		//	return
-		//}
+		uuidStr, err := getCookieUUID(r, secret)
+		if err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			return
+		}
 		//
 		//if uuidStr == "" {
 		//	log.Critical(ctx, herrors.New("Attempting to access messages without being logged in"))
@@ -71,13 +73,13 @@ func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//subject := "New feedback"
-		//text := fmt.Sprintf("Name: %s\nEmail: %s\nMessage: %s\n", cr.Name, cr.Email, cr.Message)
-		//if err := email.Send(subject, text); err != nil {
-		//	log.Critical(ctx, herrors.Wrap(err))
-		//	ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-		//	return
-		//}
+		subject := fmt.Sprintf("New feedback from %s", uuidStr)
+		text := fmt.Sprintf("Name: %s\nEmail: %s\nMessage: %s\n", cr.Name, cr.Email, cr.Message)
+		if err := email.Send(subject, text); err != nil {
+			log.Critical(ctx, herrors.Wrap(err))
+			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+			return
+		}
 
 		responseJSONSuccess(ctx, w)
 	}
