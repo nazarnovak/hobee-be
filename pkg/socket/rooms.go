@@ -2,9 +2,13 @@ package socket
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	cryptoRand "crypto/rand"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -13,6 +17,7 @@ import (
 
 	"github.com/satori/go.uuid"
 
+	"github.com/nazarnovak/hobee-be/pkg/db"
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
@@ -39,8 +44,8 @@ type Room struct {
 }
 
 type Result struct {
-	AuthorUUID string `json:"-"`
-	Liked      bool `json:"liked"`
+	AuthorUUID string       `json:"-"`
+	Liked      bool         `json:"liked"`
 	Reported   ReportReason `json:"reported"`
 }
 
@@ -59,39 +64,76 @@ var (
 	rooms             = map[string]*Room{}
 )
 
-func (r *Room) SaveMessages() error {
-	filename := fmt.Sprintf("%s.%s", r.ID.String(), "csv")
+func (r *Room) SaveMessages(secret string) error {
+	q := `INSERT INTO chats(user1, user2, chat, started, finished)
+		VALUES($1, $2, $3, $4, $5);`
 
-	if exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename)); exists {
-		return herrors.New("Filename already exists", "roomuuid", r.ID.String())
-	}
-
-	file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
+	chatBytes, err := json.Marshal(r.Messages)
 	if err != nil {
 		return herrors.Wrap(err)
 	}
-	defer file.Close()
 
-	rows := make([][]string, 0, len(r.Messages)+1)
-
-	// Headers
-	rows = append(rows, []string{"timestamp", "authoruuid", "type", "text"})
-
-	for _, msg := range r.Messages {
-		row := []string{msg.Timestamp.Format(time.RFC3339), msg.AuthorUUID, string(msg.Type), msg.Text}
-
-		rows = append(rows, row)
-	}
-
-	wr := csv.NewWriter(file)
-	wr.Comma = ';'
-
-	if err := wr.WriteAll(rows); err != nil {
+	encryptedMsgs, err := EncryptMessages(chatBytes, secret)
+	if err != nil {
 		return herrors.Wrap(err)
 	}
-	wr.Flush()
+
+	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, encryptedMsgs, r.Messages[0].Timestamp, time.Now().UTC()); err != nil {
+		return herrors.Wrap(err)
+	}
 
 	return nil
+	//filename := fmt.Sprintf("%s.%s", r.ID.String(), "csv")
+	//
+	//if exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename)); exists {
+	//	return herrors.New("Filename already exists", "roomuuid", r.ID.String())
+	//}
+	//
+	//file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
+	//if err != nil {
+	//	return herrors.Wrap(err)
+	//}
+	//defer file.Close()
+	//
+	//rows := make([][]string, 0, len(r.Messages)+1)
+	//
+	//// Headers
+	//rows = append(rows, []string{"timestamp", "authoruuid", "type", "text"})
+	//
+	//for _, msg := range r.Messages {
+	//	row := []string{msg.Timestamp.Format(time.RFC3339), msg.AuthorUUID, string(msg.Type), msg.Text}
+	//
+	//	rows = append(rows, row)
+	//}
+	//
+	//wr := csv.NewWriter(file)
+	//wr.Comma = ';'
+	//
+	//if err := wr.WriteAll(rows); err != nil {
+	//	return herrors.Wrap(err)
+	//}
+	//wr.Flush()
+
+	return nil
+}
+
+func EncryptMessages(messages []byte, secret string) ([]byte, error) {
+	c, err := aes.NewCipher([]byte(secret))
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	gcm, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(cryptoRand.Reader, nonce); err != nil {
+		return nil, herrors.Wrap(err)
+	}
+
+	return gcm.Seal(nonce, nonce, messages, nil), nil
 }
 
 func saveResultLikeCSV(roomuuid, useruuid string, liked bool) error {
@@ -253,13 +295,13 @@ func FileExists(name string) bool {
 	return true
 }
 
-func randStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
+//func randStringRunes(n int) string {
+//	b := make([]rune, n)
+//	for i := range b {
+//		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+//	}
+//	return string(b)
+//}
 
 func Rooms(matchedUsers <-chan [2]*User) {
 	ctx := context.Background()

@@ -1,7 +1,7 @@
 package config
 
 type Config struct {
-	Test bool   `json:"test"`
+	Dev  bool   `json:"dev"`
 	Port string `json:"port"`
 
 	DB     `json:"db"`
@@ -12,7 +12,8 @@ type Config struct {
 }
 
 type DB struct {
-	Connection string `json:"connection"`
+	Connection     string `json:"connection"`
+	ConnectionProd string `json:"connectionProd"`
 }
 
 type Log struct {

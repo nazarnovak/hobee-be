@@ -1,12 +1,13 @@
 {
+  "dev": false,
   "port": ":80",
   "log": {
     "out": "stderr"
   },
   "db": {
-      "connection": "postgres://nazar@localhost/hobee?sslmode=disable"
+      "connection": "postgres://nazar@localhost/hobee?sslmode=disable",
+      "connectionProd": "postgres://huesodihnreryn:4b0bf19cfc69336938b9b251d8098d45c97ec36da69853e63ffbf5ac13024adf@ec2-46-137-177-160.eu-west-1.compute.amazonaws.com:5432/da2847lsd66tne"
   },
-  "secret": "supersecret1",
   "email": {
     "apikey": "988afe2b20c6f2dd9cf3d9bace167880-074fa10c-23e83c68",
     "domain": "sandboxc82077688c034509a3f1dd726b9ae90f.mailgun.org"

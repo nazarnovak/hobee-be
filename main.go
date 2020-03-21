@@ -1,13 +1,15 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/nazarnovak/hobee-be/pkg/db"
 	"os"
 
 	"github.com/nazarnovak/hobee-be/config"
+	"github.com/nazarnovak/hobee-be/pkg/email"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 	"github.com/nazarnovak/hobee-be/pkg/socket"
-	"github.com/nazarnovak/hobee-be/pkg/email"
 )
 
 /*
@@ -41,30 +43,21 @@ change anything?
 func main() {
 	c, err := config.Load()
 	if err != nil {
-		fmt.Printf("Config init fail: %s", err.Error())
+		fmt.Printf("Config init fail: %s\n", err.Error())
 		return
 	}
 
-	if err := log.Init(c.Log.Out); err != nil {
-		fmt.Printf("Log init fail: %s", err.Error())
+	devPtr := flag.Bool("dev", false, "Flag that tells if it's running in dev environment")
+
+	flag.Parse()
+
+	isDev := *devPtr
+
+	secret := os.Getenv("SECRET")
+	if secret == "" {
+		fmt.Printf("$SECRET must be set\n")
 		return
 	}
-
-	if err := email.Init(c.Email.ApiKey, c.Email.Domain); err != nil {
-		fmt.Printf("Email init fail: %s", err.Error())
-		return
-	}
-
-	//if err := db.Init(c.DB.Connection); err != nil {
-	//	fmt.Printf("DB init fail: %s", err)
-	//	return
-	//}
-
-	usersPool := make(chan [2]*socket.User)
-
-	go socket.Matcher(usersPool)
-
-	socket.Rooms(usersPool)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -72,12 +65,34 @@ func main() {
 		return
 	}
 
+	if err := log.Init(c.Log.Out); err != nil {
+		fmt.Printf("Log init fail: %s\n", err.Error())
+		return
+	}
+
+	if err := email.Init(c.Email.ApiKey, c.Email.Domain); err != nil {
+		fmt.Printf("Email init fail: %s\n", err.Error())
+		return
+	}
+
+	if err := db.Init(c.DB, isDev); err != nil {
+		fmt.Printf("DB init fail: %s\n", err)
+		return
+	}
+	defer db.Instance.Close()
+
+	usersPool := make(chan [2]*socket.User)
+
+	go socket.Matcher(usersPool)
+
+	socket.Rooms(usersPool)
+
 	port = ":" + port
 
 	fmt.Println("Running on port", port)
 
 	s := NewServer()
-	s.Start(c.Secret, port)
+	s.Start(secret, port)
 
 	//defer s.Stop()
 }

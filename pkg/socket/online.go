@@ -94,7 +94,7 @@ func UserInARoomUUID(userUUID string) string {
 	return roomUUID
 }
 
-func (u *User) Reader(ctx context.Context, s *Socket) {
+func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 	defer func() {
 		u.Close(ctx, s)
 	}()
@@ -118,7 +118,7 @@ func (u *User) Reader(ctx context.Context, s *Socket) {
 		fmt.Printf("%+v\n", msg)
 		switch msg.Type {
 		case MessageTypeSystem:
-			u.handleSystemMessage(ctx, s, msg.Text)
+			u.handleSystemMessage(ctx, s, msg.Text, secret)
 		case MessageTypeOwn:
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeChatting, Text: []byte(msg.Text)}
 		case MessageTypeActivity:
@@ -247,7 +247,7 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 	s.conn.Close()
 }
 
-func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
+func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd, secret string) {
 	switch cmd {
 	case SystemSearch:
 		// Enter search mode for user
@@ -280,7 +280,7 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd string) {
 		matcherMutex.Unlock()
 
 		// Save the chat into a file
-		if err := room.SaveMessages(); err != nil {
+		if err := room.SaveMessages(secret); err != nil {
 			log.Critical(ctx, herrors.Wrap(err))
 			return
 		}

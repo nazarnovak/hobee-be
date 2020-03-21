@@ -66,7 +66,7 @@ fmt.Println("New socket connected at:", time.Now().UTC().String())
 // Run reader, which when received "search" command should somehow add the socket to search. That means
 // we will import pkg/matcher
 // pkg/matcher has references to pkg/socket.Socket as a part of Add/Remove functions
-		go user.Reader(ctx, s)
+		go user.Reader(ctx, s, secret)
 		go user.Writer(ctx, s)
 
 		// Initial message - to notify if user is already connected to a room and the socket should join it, or there is no
