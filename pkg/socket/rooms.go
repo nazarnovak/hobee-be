@@ -65,8 +65,8 @@ var (
 )
 
 func (r *Room) SaveMessages(secret string) error {
-	q := `INSERT INTO chats(user1, user2, chat, started, finished)
-		VALUES($1, $2, $3, $4, $5);`
+	q := `INSERT INTO chats(user1, user2, room, chat, started, finished)
+		VALUES($1, $2, $3, $4, $5, $6);`
 
 	chatBytes, err := json.Marshal(r.Messages)
 	if err != nil {
@@ -78,7 +78,7 @@ func (r *Room) SaveMessages(secret string) error {
 		return herrors.Wrap(err)
 	}
 
-	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, encryptedMsgs, r.Messages[0].Timestamp, time.Now().UTC()); err != nil {
+	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, r.ID, encryptedMsgs, r.Messages[0].Timestamp, time.Now().UTC()); err != nil {
 		return herrors.Wrap(err)
 	}
 
@@ -636,6 +636,17 @@ func SetRoomLike(roomuuid, useruuid string, liked bool) error {
 		room.Results[k].Liked = liked
 	}
 
+	// Set like in DB
+	user := "user1"
+	if useruuid == room.Users[1].UUID {
+		user = "user2"
+	}
+
+	q := fmt.Sprintf(`UPDATE chats SET %[1]s_liked = $1 WHERE room = $2;`, user)
+	if _, err := db.Instance.Exec(q, liked, roomuuid); err != nil {
+		return herrors.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -660,6 +671,16 @@ func SetRoomReport(roomuuid, useruuid string, reason ReportReason) error {
 		room.Results[k].Reported = reason
 	}
 
+	// Set report in DB
+	user := "user1"
+	if useruuid == room.Users[1].UUID {
+		user = "user2"
+	}
+
+	q := fmt.Sprintf(`UPDATE chats SET %[1]s_reported = $1 WHERE room = $2;`, user)
+	if _, err := db.Instance.Exec(q, reason, roomuuid); err != nil {
+		return herrors.Wrap(err)
+	}
 	return nil
 }
 

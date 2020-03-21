@@ -142,10 +142,10 @@ func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 					continue
 				}
 
-				if err := saveResultLikeCSV(u.RoomUUID, u.UUID, liked); err != nil {
-					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
-					continue
-				}
+				//if err := saveResultLikeCSV(u.RoomUUID, u.UUID, liked); err != nil {
+				//	log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+				//	continue
+				//}
 				continue
 			}
 
@@ -155,10 +155,10 @@ func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 					continue
 				}
 
-				if err := saveResultReportedCSV(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
-					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
-					continue
-				}
+				//if err := saveResultReportedCSV(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
+				//	log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+				//	continue
+				//}
 				continue
 			}
 
