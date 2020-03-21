@@ -136,6 +136,25 @@ func EncryptMessages(messages []byte, secret string) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, messages, nil), nil
 }
 
+func DecryptMessages(encrypted []byte, secret string) []byte {
+	key := []byte(secret)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+	nonceSize := gcm.NonceSize()
+	nonce, ciphertext := encrypted[:nonceSize], encrypted[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err.Error())
+	}
+	return plaintext
+}
+
 func saveResultLikeCSV(roomuuid, useruuid string, liked bool) error {
 	filename := fmt.Sprintf("%s:%s.%s", roomuuid, useruuid, "csv")
 
