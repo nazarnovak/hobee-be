@@ -155,6 +155,33 @@ func DecryptMessages(encrypted []byte, secret string) []byte {
 	return plaintext
 }
 
+func (r *Room) SaveUsersToUserHistory() {
+	saveUserToUserHistory(r.Users[0], r.Users[1].UUID)
+	saveUserToUserHistory(r.Users[1], r.Users[0].UUID)
+
+	return
+}
+
+func saveUserToUserHistory(u *User, userUUIDToSave string) {
+	u.UserHistory = append(u.UserHistory, userHistory{
+		UserUUID: userUUIDToSave,
+		LastMessage: time.Now().UTC(),
+	})
+
+	// We only want the history of the last 3 people you talked to
+	if len(u.UserHistory) > 3 {
+		// Remove the oldest room from history
+		u.UserHistory = append(u.UserHistory[:0], u.UserHistory[1:]...)
+	}
+
+	return
+}
+
+func (r *Room) SetUsersStatusToDisconnected() {
+	r.Users[0].Status = statusDisconnected
+	r.Users[1].Status = statusDisconnected
+}
+
 func saveResultLikeCSV(roomuuid, useruuid string, liked bool) error {
 	filename := fmt.Sprintf("%s:%s.%s", roomuuid, useruuid, "csv")
 

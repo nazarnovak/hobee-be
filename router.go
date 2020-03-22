@@ -71,6 +71,7 @@ func router(secret string) *web.Mux {
 	mux.Get("/api/identify", api.Identify(secret))
 	mux.Get("/api/chat", api.Chat(secret))
 	mux.Get("/api/messages", api.Messages(secret))
+	mux.Get("/api/online", api.Online(secret))
 	mux.Get("/api/result", api.Result(secret))
 	mux.Get("/api/history", api.History(secret))
 	mux.Post("/api/contact", api.Contact(secret))

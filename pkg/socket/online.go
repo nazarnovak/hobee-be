@@ -41,10 +41,26 @@ type User struct {
 	Status status
 
 	// The latest users uuids that this user had a conversation with
-	//UserHistory []string
+	UserHistory []userHistory
 
 	// The latest room uuids that this user was a part of
 	RoomHistory []string
+}
+
+type userHistory struct {
+	UserUUID    string
+	LastMessage time.Time
+}
+
+type onlineStatistic struct {
+	Status   string
+	Count    int
+	UserStatistic []userStatistic
+}
+
+type userStatistic struct {
+	Browsers []string
+	IPs      []string
 }
 
 // attachSocketToUser attaches one of the sockets to an existing user in the map (which is sort of like online), or
@@ -257,10 +273,6 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd, secret s
 
 		searchAdd(u)
 	case SystemDisconnected:
-		// Disconnect from the current the conversation, but still part of a room until next search
-		// UpdateStatus(users[0].UUID, statusDisconnected)
-		// UpdateStatus(users[1].UUID, statusDisconnected)
-		// UpdateStatus(room[uuid], statusDisconnected)
 		u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeSystem, Text: []byte(SystemDisconnected)}
 
 		if u.RoomUUID == "" {
@@ -269,6 +281,7 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd, secret s
 		}
 
 		matcherMutex.Lock()
+
 		room, ok := rooms[u.RoomUUID]
 		if !ok {
 			matcherMutex.Unlock()
@@ -284,6 +297,11 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd, secret s
 			log.Critical(ctx, herrors.Wrap(err))
 			return
 		}
+
+		room.SaveUsersToUserHistory()
+		room.SetUsersStatusToDisconnected()
+
+		// UpdateStatus(room[uuid], statusDisconnected)
 	default:
 		err := herrors.New("Unknown command received on websocket conn", "cmd", cmd)
 		log.Critical(ctx, err)
@@ -340,4 +358,31 @@ func cleanUpRoom(u *User) error {
 	}
 
 	return nil
+}
+
+func GetTotalOnline() int {
+	return len(usersSocketsMap)
+}
+
+func GetTalkingSearchingDisconnected() (int, int, int) {
+	talking, searching, disconnected := 0, 0, 0
+
+	for _, u := range usersSocketsMap {
+		if u.Status == statusDisconnected {
+			disconnected++
+			continue
+		}
+
+		if u.Status == statusSearching {
+			searching++
+			continue
+		}
+
+		if u.Status == statusTalking {
+			talking++
+			continue
+		}
+	}
+
+	return talking, searching, disconnected
 }

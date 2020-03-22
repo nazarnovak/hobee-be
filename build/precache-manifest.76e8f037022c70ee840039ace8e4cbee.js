@@ -1,15 +1,15 @@
 self.__precacheManifest = [
   {
-    "revision": "ec067621c08c8e0d0b1f",
-    "url": "/static/css/main.5374a2e9.chunk.css"
+    "revision": "07bff618d2e6e8e377ef",
+    "url": "/static/css/main.da02ad32.chunk.css"
   },
   {
-    "revision": "ec067621c08c8e0d0b1f",
-    "url": "/static/js/main.ec067621.chunk.js"
+    "revision": "07bff618d2e6e8e377ef",
+    "url": "/static/js/main.07bff618.chunk.js"
   },
   {
-    "revision": "9f309e6b2a28de7444a9",
-    "url": "/static/js/1.9f309e6b.chunk.js"
+    "revision": "aafdd08e9b46fbf14c48",
+    "url": "/static/js/1.aafdd08e.chunk.js"
   },
   {
     "revision": "229c360febb4351a89df",
@@ -52,10 +52,6 @@ self.__precacheManifest = [
     "url": "/static/media/heartWhite.cbaf32fe.svg"
   },
   {
-    "revision": "27fe68ad1ca7c894e3d298d2d52c7c60",
-    "url": "/static/media/disketteWhite.27fe68ad.svg"
-  },
-  {
     "revision": "f1eeb7508e4b5979f54bf5390884624f",
     "url": "/static/media/exclamationWhite.f1eeb750.svg"
   },
@@ -80,7 +76,7 @@ self.__precacheManifest = [
     "url": "/static/media/circle_checkmark.001302f6.svg"
   },
   {
-    "revision": "06cfd76fb0aceb357a74d9a3272501dd",
+    "revision": "e458216730c38298c3c09322435ceac5",
     "url": "/index.html"
   }
 ];

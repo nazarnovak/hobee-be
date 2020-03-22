@@ -67,6 +67,9 @@ type Socket struct {
 	conn *websocket.Conn
 	// Send is used to send message to websockets
 	Send chan []byte
+
+	ip        string
+	userAgent string
 }
 
 type Message struct {
@@ -76,8 +79,13 @@ type Message struct {
 	Timestamp  time.Time   `json:"timestamp"`
 }
 
-func New(conn *websocket.Conn) *Socket {
-	return &Socket{conn: conn, Send: make(chan []byte)}
+func New(conn *websocket.Conn, userAgent string) *Socket {
+	return &Socket{
+		conn: conn,
+		Send: make(chan []byte),
+		ip: conn.RemoteAddr().String(),
+		userAgent: userAgent,
+	}
 }
 
 func isReportOption(option string) bool {

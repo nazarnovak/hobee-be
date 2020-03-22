@@ -59,7 +59,7 @@ func Chat(secret string) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 fmt.Println("New socket connected at:", time.Now().UTC().String())
-		s := socket.New(c)
+		s := socket.New(c, r.UserAgent())
 
 		user := socket.AttachSocketToUser(uuidStr, s)
 // Creates a new socket with pkg/socket
