@@ -3,10 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/nazarnovak/hobee-be/pkg/db"
-	"os"
-
 	"github.com/nazarnovak/hobee-be/config"
+	"github.com/nazarnovak/hobee-be/pkg/db"
 	"github.com/nazarnovak/hobee-be/pkg/email"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 	"github.com/nazarnovak/hobee-be/pkg/socket"
@@ -53,17 +51,19 @@ func main() {
 
 	isDev := *devPtr
 
-	secret := os.Getenv("SECRET")
-	if secret == "" {
-		fmt.Printf("$SECRET must be set\n")
-		return
-	}
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		fmt.Println(("$PORT must be set"))
-		return
-	}
+	// Temporarily test if the service works
+	secret, port := "testsecret1", "8080"
+	//secret := os.Getenv("SECRET")
+	//if secret == "" {
+	//	fmt.Printf("$SECRET must be set\n")
+	//	return
+	//}
+	//
+	//port := os.Getenv("PORT")
+	//if port == "" {
+	//	fmt.Println(("$PORT must be set"))
+	//	return
+	//}
 
 	if err := log.Init(c.Log.Out); err != nil {
 		fmt.Printf("Log init fail: %s\n", err.Error())

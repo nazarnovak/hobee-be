@@ -3,15 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/zenazn/goji/web"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/nazarnovak/hobee-be/api"
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
 	"github.com/nazarnovak/hobee-be/pkg/log"
+	"github.com/zenazn/goji/web"
+	"net/http"
 )
 
 type Server struct{}
@@ -76,51 +72,7 @@ func router(secret string) *web.Mux {
 	mux.Get("/api/history", api.History(secret))
 	mux.Post("/api/contact", api.Contact(secret))
 
-	compiledFEFolder := "build"
-
-	staticFiles, err := getStaticFiles(compiledFEFolder)
-	if err != nil {
-		log.Critical(context.Background(), err)
-	}
-
-	for _, staticFile := range staticFiles {
-		mux.Handle(staticFile, http.FileServer(http.Dir(compiledFEFolder)))
-	}
-
-	mux.Handle("/*", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, fmt.Sprintf("%s/%s", compiledFEFolder, "index.html"))
-	})
-	//mux.Handle("/*", http.FileServer(http.Dir(compiledFEFolder)))
-
 	return mux
-}
-
-func getStaticFiles(root string) ([]string, error) {
-	files := []string{}
-
-	walkFn := func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return herrors.Wrap(err)
-		}
-
-		path = strings.TrimLeft(path, "build")
-
-		if path == "/.DS_Store" || path == "/index.html" || path == "/static" || path == "/static/css" ||
-			path == "/static/js" || path == "/static/media" {
-			return nil
-		}
-
-		files = append(files, path)
-
-		return nil
-	}
-
-	err := filepath.Walk(root, walkFn)
-	if err != nil {
-		return nil, herrors.Wrap(err)
-	}
-
-	return files, nil
 }
 
 //func getCorsHandler() func(http.Handler) http.Handler {

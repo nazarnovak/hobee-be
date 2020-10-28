@@ -26,17 +26,19 @@ var allowedOrigins = []string{
 	"https://hobee.herokuapp.com",
 	// Testing with ngrok
 	"https://ed82269a.ngrok.io",
+	// Google App Engine
+	"https://hobeechat.oa.r.appspot.com",
 }
 
 func Chat(secret string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		if err := checkOrigin(r); err != nil {
-			log.Critical(ctx, err)
-			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
-			return
-		}
+		//if err := checkOrigin(r); err != nil {
+		//	log.Critical(ctx, err)
+		//	ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
+		//	return
+		//}
 
 		uuidStr, err := getCookieUUID(r, secret)
 		if err != nil {
