@@ -292,7 +292,7 @@ func (u *User) handleSystemMessage(ctx context.Context, s *Socket, cmd, secret s
 		room.Active = false
 		matcherMutex.Unlock()
 
-		// Save the chat into a file
+		// Save the chat
 		if err := room.SaveMessages(secret); err != nil {
 			log.Critical(ctx, herrors.Wrap(err))
 			return

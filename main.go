@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/nazarnovak/hobee-be/config"
 	"github.com/nazarnovak/hobee-be/pkg/db"
-	"github.com/nazarnovak/hobee-be/pkg/email"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 	"github.com/nazarnovak/hobee-be/pkg/socket"
 )
@@ -39,43 +40,36 @@ change anything?
 
 */
 func main() {
-	c, err := config.Load()
+	devPtr := flag.Bool("dev", false, "Flag that tells if it's running in dev environment")
+	flag.Parse()
+
+	isDev := *devPtr
+
+	c, err := config.Load(isDev)
 	if err != nil {
 		fmt.Printf("Config init fail: %s\n", err.Error())
 		return
 	}
 
-	devPtr := flag.Bool("dev", false, "Flag that tells if it's running in dev environment")
-
-	flag.Parse()
-
-	isDev := *devPtr
-
 	// Temporarily test if the service works
-	secret, port := "testsecret1", "8080"
+	secret := "testsecret131211"
 	//secret := os.Getenv("SECRET")
 	//if secret == "" {
 	//	fmt.Printf("$SECRET must be set\n")
 	//	return
-	//}
-	//
-	//port := os.Getenv("PORT")
-	//if port == "" {
-	//	fmt.Println(("$PORT must be set"))
-	//	return
-	//}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		//fmt.Printf("$PORT is not set - defaulting to port %s\n", port)
+	}
 
 	if err := log.Init(c.Log.Out); err != nil {
 		fmt.Printf("Log init fail: %s\n", err.Error())
 		return
 	}
 
-	if err := email.Init(c.Email.ApiKey, c.Email.Domain); err != nil {
-		fmt.Printf("Email init fail: %s\n", err.Error())
-		return
-	}
-
-	if err := db.Init(c.DB, isDev); err != nil {
+	if err := db.Init(c.DB, c.DevEnv); err != nil {
 		fmt.Printf("DB init fail: %s\n", err)
 		return
 	}

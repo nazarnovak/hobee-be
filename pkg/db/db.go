@@ -2,9 +2,8 @@ package db
 
 import (
 	"database/sql"
-
-	_ "github.com/lib/pq"
 	"github.com/GoogleCloudPlatform/cloudsql-proxy/logging"
+	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
 
 	"github.com/nazarnovak/hobee-be/config"
 )
@@ -13,11 +12,14 @@ var Instance *sql.DB
 
 func Init(cnfDB config.DB, isDev bool) error {
 	connectionString := cnfDB.Connection
+	driver := "postgres"
+
 	if !isDev {
 		connectionString = cnfDB.ConnectionProd
+		driver = "cloudsqlpostgres"
 	}
 
-	db, err := sql.Open("postgres", connectionString)
+	db, err := sql.Open(driver, connectionString)
 	if err != nil {
 		return err
 	}

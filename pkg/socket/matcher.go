@@ -49,12 +49,12 @@ func getMatchingUsers(sp chan<- [2]*User) {
 		//}
 
 		// Do not match with the last user you talked to if it was 1 minute ago
-		if matched > 0 && len(matchedUsers[0].UserHistory) > 0 {
-			if matchedUsers[0].UserHistory[0].UserUUID == searchingUser.UUID &&
-				time.Now().UTC().Sub(matchedUsers[0].UserHistory[0].LastMessage) < time.Second * 10 {
-				continue
-			}
-		}
+		//if matched > 0 && len(matchedUsers[0].UserHistory) > 0 {
+		//	if matchedUsers[0].UserHistory[0].UserUUID == searchingUser.UUID &&
+		//		time.Now().UTC().Sub(matchedUsers[0].UserHistory[0].LastMessage) < time.Second * 10 {
+		//		continue
+		//	}
+		//}
 
 		matchedUsers[matched] = searchingUser
 		matched++

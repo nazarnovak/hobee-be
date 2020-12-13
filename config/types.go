@@ -1,14 +1,12 @@
 package config
 
 type Config struct {
-	Dev  bool   `json:"dev"`
-	Port string `json:"port"`
+	DevEnv bool `json:"-"`
 
 	DB     `json:"db"`
 	Log    `json:"log"`
 	Secret string `json:"secret"`
 	//RedisURL string `json:"redisurl"`
-	Email `json:"email"`
 }
 
 type DB struct {
@@ -18,9 +16,4 @@ type DB struct {
 
 type Log struct {
 	Out string `json:"out"`
-}
-
-type Email struct {
-	ApiKey string `json:"apikey"`
-	Domain string `json:"domain"`
 }

@@ -2,11 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/nazarnovak/hobee-be/pkg/email"
-	"github.com/nazarnovak/hobee-be/pkg/herrors2"
 	"net/http"
-	//"github.com/nazarnovak/hobee-be/pkg/email"
+
+	"github.com/satori/go.uuid"
+
+	"github.com/nazarnovak/hobee-be/pkg/db"
+	"github.com/nazarnovak/hobee-be/pkg/herrors2"
 	"github.com/nazarnovak/hobee-be/pkg/log"
 )
 
@@ -73,9 +74,8 @@ func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		subject := fmt.Sprintf("New feedback from %s", uuidStr)
-		text := fmt.Sprintf("Name: %s\nEmail: %s\nMessage: %s\n", cr.Name, cr.Email, cr.Message)
-		if err := email.Send(subject, text); err != nil {
+		// Save feedback entry into DB
+		if err := SaveContact(cr, uuidStr); err != nil {
 			log.Critical(ctx, herrors.Wrap(err))
 			ResponseJSONError(ctx, w, internalServerError, http.StatusInternalServerError)
 			return
@@ -83,4 +83,24 @@ func Contact(secret string) func(w http.ResponseWriter, r *http.Request) {
 
 		responseJSONSuccess(ctx, w)
 	}
+}
+
+func SaveContact(cr ContactRequest, userUUID string) error {
+	q := `INSERT INTO contacts(id, name, email, message, useruuid)
+		VALUES(DEFAULT, $1, $2, $3, $4);`
+
+	var err error
+	u := uuid.Nil
+	if userUUID != "" {
+		u, err = uuid.FromString(userUUID)
+		if err != nil {
+			return herrors.Wrap(err)
+		}
+	}
+
+	if _, err := db.Instance.Exec(q, cr.Name, cr.Email, cr.Message, u); err != nil {
+		return herrors.Wrap(err)
+	}
+
+	return nil
 }

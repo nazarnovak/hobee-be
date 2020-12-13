@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+
+	"github.com/rs/cors"
+	"github.com/zenazn/goji/web"
+
 	"github.com/nazarnovak/hobee-be/api"
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
 	"github.com/nazarnovak/hobee-be/pkg/log"
-	"github.com/zenazn/goji/web"
-	"net/http"
 )
 
 type Server struct{}
@@ -60,9 +63,9 @@ func router(secret string) *web.Mux {
 	//mux.Get("/api/user", api.User(secret))
 	//mux.Post("/api/login", api.Login(secret))
 
-	//mux.Use(getCorsHandler())
-	//	mux.Get("/test/login", api.TestLogin(secret))
-	//	mux.Get("/test/logout", api.TestLogout(secret))
+	mux.Use(getCorsHandler())
+	//mux.Get("/test/login", api.TestLogin(secret))
+	//mux.Get("/test/logout", api.TestLogout(secret))
 
 	mux.Get("/api/identify", api.Identify(secret))
 	mux.Get("/api/chat", api.Chat(secret))
@@ -72,23 +75,33 @@ func router(secret string) *web.Mux {
 	mux.Get("/api/history", api.History(secret))
 	mux.Post("/api/contact", api.Contact(secret))
 
+	//mux.Get("/api/test", Test())
+
 	return mux
 }
 
-//func getCorsHandler() func(http.Handler) http.Handler {
-//	allowedOrigins := []string{}
-//// TODO: Add mode dev + mode prod here to separate sites
-//	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
-//// External IP
-//allowedOrigins = append(allowedOrigins, "http://84.219.232.19:3000")
-//
-//	c := cors.New(cors.Options{
-//		AllowedOrigins:   allowedOrigins,
-//		AllowedHeaders:   []string{"Accept", "Authorization", "Cache-Control", "Content-Type", "Origin", "User-Agent", "Viewport", "X-Requested-With"},
-//		MaxAge:           1728000,
-//		AllowCredentials: true,
-//		AllowedMethods:   []string{"GET"},
-//	})
-//
-//	return c.Handler
+//func Test() func(w http.ResponseWriter, r *http.Request) {
+//	return func(w http.ResponseWriter, r *http.Request) {
+//		fmt.Println("Test hello!")
+//		w.WriteHeader(200)
+//		w.Write([]byte("Hello!"))
+//	}
 //}
+
+func getCorsHandler() func(http.Handler) http.Handler {
+	allowedOrigins := []string{}
+// TODO: Add mode dev + mode prod here to separate sites
+	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+	// External IP
+	allowedOrigins = append(allowedOrigins, "http://84.219.232.19:3000")
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedHeaders:   []string{"Accept", "Authorization", "Cache-Control", "Content-Type", "Origin", "User-Agent", "Viewport", "X-Requested-With"},
+		MaxAge:           1728000,
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST"},
+	})
+
+	return c.Handler
+}

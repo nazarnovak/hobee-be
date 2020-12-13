@@ -65,8 +65,8 @@ var (
 )
 
 func (r *Room) SaveMessages(secret string) error {
-	q := `INSERT INTO chats(user1, user2, room, chat, started, finished)
-		VALUES($1, $2, $3, $4, $5, $6);`
+	q := `INSERT INTO chats(id, user1, user2, room, messages, started, finished, user1_like, user1_report, user2_like, user2_report)
+		VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
 
 	chatBytes, err := json.Marshal(r.Messages)
 	if err != nil {
@@ -78,41 +78,24 @@ func (r *Room) SaveMessages(secret string) error {
 		return herrors.Wrap(err)
 	}
 
-	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, r.ID, encryptedMsgs, r.Messages[0].Timestamp, time.Now().UTC()); err != nil {
-		return herrors.Wrap(err)
+	if len(r.Users) != 2 {
+		return herrors.New("Expecting 2 users, but got", "usercount", len(r.Users))
 	}
 
-	return nil
-	//filename := fmt.Sprintf("%s.%s", r.ID.String(), "csv")
-	//
-	//if exists := FileExists(fmt.Sprintf("%s/%s", "chats", filename)); exists {
-	//	return herrors.New("Filename already exists", "roomuuid", r.ID.String())
-	//}
-	//
-	//file, err := os.OpenFile(fmt.Sprintf("%s/%s", "chats", filename), os.O_CREATE|os.O_WRONLY, 0777)
-	//if err != nil {
-	//	return herrors.Wrap(err)
-	//}
-	//defer file.Close()
-	//
-	//rows := make([][]string, 0, len(r.Messages)+1)
-	//
-	//// Headers
-	//rows = append(rows, []string{"timestamp", "authoruuid", "type", "text"})
-	//
-	//for _, msg := range r.Messages {
-	//	row := []string{msg.Timestamp.Format(time.RFC3339), msg.AuthorUUID, string(msg.Type), msg.Text}
-	//
-	//	rows = append(rows, row)
-	//}
-	//
-	//wr := csv.NewWriter(file)
-	//wr.Comma = ';'
-	//
-	//if err := wr.WriteAll(rows); err != nil {
-	//	return herrors.Wrap(err)
-	//}
-	//wr.Flush()
+	if len(r.Messages) == 0 {
+		return herrors.New("Expecting more than 0 messages")
+	}
+
+	if len(r.Results) != 2 {
+		return herrors.New("Expecting 2 results, but got", "resultcount", len(r.Results))
+	}
+
+	// Check if messages empty too
+// TODO: Changed liked from bool to string, and add it to like
+	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, r.ID, encryptedMsgs, r.Messages[0].Timestamp,
+		time.Now().UTC(), "user1_liked", r.Results[0].Reported, "user2_liked", r.Results[1].Reported); err != nil {
+		return herrors.Wrap(err)
+	}
 
 	return nil
 }

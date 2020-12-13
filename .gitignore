@@ -6,3 +6,6 @@ hobee
 
 #Test scripts
 test/
+
+#Vendor
+vendor/
