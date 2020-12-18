@@ -167,7 +167,7 @@ func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 
 			if isReportOption(msg.Text) {
 				if err := SetRoomReport(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
-					log.Critical(ctx, herrors.New("Couldn't set a like on a room", "user", u, "msg", msg))
+					log.Critical(ctx, herrors.New("Couldn't send report on a room", "user", u, "msg", msg))
 					continue
 				}
 

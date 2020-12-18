@@ -706,7 +706,7 @@ func SetRoomReport(roomuuid, useruuid string, reason ReportReason) error {
 		user = "user2"
 	}
 
-	q := fmt.Sprintf(`UPDATE chats SET %[1]s_reported = $1 WHERE room = $2;`, user)
+	q := fmt.Sprintf(`UPDATE chats SET %[1]s_report = $1 WHERE room = $2;`, user)
 	if _, err := db.Instance.Exec(q, reason, roomuuid); err != nil {
 		return herrors.Wrap(err)
 	}

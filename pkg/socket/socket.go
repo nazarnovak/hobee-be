@@ -73,6 +73,7 @@ type Socket struct {
 }
 
 type Message struct {
+	//UUID       string      `json:"uuid"`
 	AuthorUUID string      `json:"authoruuid"`
 	Type       MessageType `json:"type"`
 	Text       string      `json:"text"`
@@ -81,9 +82,9 @@ type Message struct {
 
 func New(conn *websocket.Conn, userAgent string) *Socket {
 	return &Socket{
-		conn: conn,
-		Send: make(chan []byte),
-		ip: conn.RemoteAddr().String(),
+		conn:      conn,
+		Send:      make(chan []byte),
+		ip:        conn.RemoteAddr().String(),
 		userAgent: userAgent,
 	}
 }
