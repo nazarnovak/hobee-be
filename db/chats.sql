@@ -6,8 +6,8 @@ CREATE TABLE chats(
 	messages bytea NOT NULL,
 	started timestamp without time zone NOT NULL,
 	finished timestamp without time zone NOT NULL,
-	user1_like character varying(16),
-	user1_report character varying(16),
-	user2_like character varying(16),
-	user2_report character varying(16)
+	user1_likes text[],
+	user1_reports text[],
+	user2_likes text[],
+	user2_reports text[]
 );

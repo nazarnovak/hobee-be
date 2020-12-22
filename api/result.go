@@ -46,8 +46,8 @@ func Result(secret string) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		o := socket.Result {
-			Liked: userResult.Liked,
-			Reported: userResult.Reported,
+			Likes: userResult.Likes,
+			Reports: userResult.Reports,
 		}
 
 		responseJSONObject(ctx, w, o)

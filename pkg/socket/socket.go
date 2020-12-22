@@ -10,9 +10,10 @@ type MessageType string
 
 const (
 	MessageTypeActivity MessageType = "a"
-	MessageTypeChatting MessageType = "c"
-	MessageTypeResult   MessageType = "r"
+	MessageTypeChatting MessageType = "c"	
 	MessageTypeSystem   MessageType = "s"
+	MessageTypeResultLike   MessageType = "rl"
+	MessageTypeResultReport   MessageType = "rr"
 
 	ActivityUserActive   = "ua"
 	ActivityUserInactive = "ui"
@@ -22,16 +23,6 @@ const (
 
 	MessageTypeOwn   MessageType = "o"
 	MessageTypeBuddy MessageType = "b"
-
-	ResultLike    = "rl"
-	ResultDislike = "rd"
-
-	ResultReportDidntLike  = "rdl"
-	ResultReportSpam       = "rsp"
-	ResultReportSexism     = "rse"
-	ResultReportHarassment = "rha"
-	ResultReportRacism     = "rra"
-	ResultReportOther      = "rot"
 
 	SystemSearch       = "s"
 	SystemConnected    = "c"
@@ -49,17 +40,6 @@ const (
 
 	// Maximum message size allowed from peer.
 	maxMessageSize = 1024
-)
-
-var (
-	allReportOptions = []string{
-		ResultReportDidntLike,
-		ResultReportSpam,
-		ResultReportSexism,
-		ResultReportHarassment,
-		ResultReportRacism,
-		ResultReportOther,
-	}
 )
 
 // socket represents a uuid and a websocket connection
@@ -89,12 +69,38 @@ func New(conn *websocket.Conn, userAgent string) *Socket {
 	}
 }
 
-func isReportOption(option string) bool {
-	for _, o := range allReportOptions {
-		if option == o {
-			return true
+func isValidLikeReasons(reasons []LikeReason) bool {
+	for _, reason := range reasons {
+		found := false
+
+		for _, likeReason := range allLikeReasons {
+			if reason == likeReason {
+				found = true
+			}
+		}
+
+		if !found {
+			return false
 		}
 	}
 
-	return false
+	return true
+}
+
+func isValidReportReasons(reasons []ReportReason) bool {
+	for _, reason := range reasons {
+		found := false
+
+		for _, reportReason := range allReportReasons {
+			if reason == reportReason {
+				found = true
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }

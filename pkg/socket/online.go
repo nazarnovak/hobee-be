@@ -2,6 +2,7 @@ package socket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -131,7 +132,7 @@ func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 
 		// Extend deadline
 		s.conn.SetReadDeadline(time.Now().Add(pongWait))
-		fmt.Printf("%+v\n", msg)
+fmt.Printf("%+v\n", msg)
 		switch msg.Type {
 		case MessageTypeSystem:
 			u.handleSystemMessage(ctx, s, msg.Text, secret)
@@ -144,41 +145,38 @@ func (u *User) Reader(ctx context.Context, s *Socket, secret string) {
 			}
 
 			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(msg.Text)}
-		case MessageTypeResult:
-			// Likes
-			if msg.Text == ResultLike || msg.Text == ResultDislike {
-				liked := true
-
-				if msg.Text == ResultDislike {
-					liked = false
-				}
-
-				if err := SetRoomLike(u.RoomUUID, u.UUID, liked); err != nil {
-					log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
-					continue
-				}
-
-				//if err := saveResultLikeCSV(u.RoomUUID, u.UUID, liked); err != nil {
-				//	log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
-				//	continue
-				//}
+		case MessageTypeResultLike:
+			var likes []LikeReason
+			if err := json.Unmarshal([]byte(msg.Text), &likes); err != nil {
+				log.Critical(ctx, herrors.New("Unexpected likes message", "msg", msg))
 				continue
 			}
 
-			if isReportOption(msg.Text) {
-				if err := SetRoomReport(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
-					log.Critical(ctx, herrors.New("Couldn't send report on a room", "user", u, "msg", msg))
-					continue
-				}
-
-				//if err := saveResultReportedCSV(u.RoomUUID, u.UUID, ReportReason(msg.Text)); err != nil {
-				//	log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
-				//	continue
-				//}
+			if !isValidLikeReasons(likes) {
+				log.Critical(ctx, herrors.New("Invalid likes message", "likes", likes))
 				continue
 			}
 
-			log.Critical(ctx, herrors.New("Unexpected result message", "msg", msg))
+			if err := SetRoomLikes(u.RoomUUID, u.UUID, likes); err != nil {
+				log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+				continue
+			}
+		case MessageTypeResultReport:
+			var reports []ReportReason
+			if err := json.Unmarshal([]byte(msg.Text), &reports); err != nil {
+				log.Critical(ctx, herrors.New("Unexpected reports message", "msg", msg))
+				continue
+			}
+
+			if !isValidReportReasons(reports) {
+				log.Critical(ctx, herrors.New("Unexpected reports message", "reports", reports))
+				continue
+			}
+
+			if err := SetRoomReports(u.RoomUUID, u.UUID, reports); err != nil {
+				log.Critical(ctx, herrors.Wrap(err, "user", u, "msg", msg))
+				continue
+			}
 		default:
 			err := herrors.New("Unknown type received in the message", "msg", msg)
 			log.Critical(ctx, err)

@@ -6,7 +6,7 @@ import (
 	"github.com/nazarnovak/hobee-be/pkg/socket"
 	"net/http"
 	"os"
-	"strconv"
+	// "strconv"
 	"time"
 
 	"github.com/nazarnovak/hobee-be/pkg/herrors2"
@@ -168,14 +168,14 @@ func getRoomResult(roomuuid, useruuid string) (socket.Result, error) {
 		return socket.Result{}, herrors.New("Expecting 2 rows in the csv", "roomuuid", roomuuid)
 	}
 
-	liked, err := strconv.ParseBool(rows[1][0])
-	if err != nil {
-		return socket.Result{}, herrors.Wrap(err)
-	}
+	// liked, err := strconv.ParseBool(rows[1][0])
+	// if err != nil {
+	// 	return socket.Result{}, herrors.Wrap(err)
+	// }
 
 	r := socket.Result{
-		Liked:    liked,
-		Reported: socket.ReportReason(rows[1][1]),
+		// Liked:    liked,
+		// Reported: socket.ReportReason(rows[1][1]),
 	}
 
 	return r, nil

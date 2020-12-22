@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/satori/go.uuid"
+	"github.com/lib/pq"
 
 	"github.com/nazarnovak/hobee-be/pkg/db"
 	"github.com/nazarnovak/hobee-be/pkg/herrors"
@@ -25,13 +26,27 @@ import (
 type ReportReason string
 
 var (
-	reasonSpam      ReportReason = "rsp"
-	reasonHarassing ReportReason = "rha"
-	reasonRacism    ReportReason = "rra"
-	reasonSex       ReportReason = "rse"
-	reasonOther     ReportReason = "rot"
+	reportReasonDidntLike ReportReason = `rdl`
+	reportReasonSpam      ReportReason = "rsp"
+	reportReasonSexism       ReportReason = "rse"
+	reportReasonHarassing ReportReason = "rha"
+	reportReasonRacism    ReportReason = "rra"
+	reportReasonOther     ReportReason = "rot"
 
-	//allReasons = []ReportReason{reasonSpam, reasonHarassing ...}
+	allReportReasons = []ReportReason{reportReasonDidntLike, reportReasonSpam, reportReasonSexism, reportReasonHarassing, reportReasonRacism, reportReasonOther}
+)
+
+type LikeReason string
+
+var (
+	likeReasonPositive      LikeReason = "lpo"
+	likeReasonUnderstanding LikeReason = "lun"
+	likeReasonFunny    LikeReason = "lfu"
+	likeReasonSmart       LikeReason = "lsm"
+	likeReasonHelpful       LikeReason = "lhe"
+	likeReasonGreat    LikeReason = "lgr"
+
+	allLikeReasons = []LikeReason{likeReasonPositive, likeReasonUnderstanding, likeReasonFunny, likeReasonSmart, likeReasonHelpful, likeReasonGreat}
 )
 
 type Room struct {
@@ -45,8 +60,8 @@ type Room struct {
 
 type Result struct {
 	AuthorUUID string       `json:"-"`
-	Liked      bool         `json:"liked"`
-	Reported   ReportReason `json:"reported"`
+	Likes      []LikeReason  `json:"likes"`
+	Reports   []ReportReason `json:"reports"`
 }
 
 // TODO: Doesn't have to be attached to a Room, could just have RoomID as a field instead?
@@ -65,7 +80,7 @@ var (
 )
 
 func (r *Room) SaveMessages(secret string) error {
-	q := `INSERT INTO chats(id, user1, user2, room, messages, started, finished, user1_like, user1_report, user2_like, user2_report)
+	q := `INSERT INTO chats(id, user1, user2, room, messages, started, finished, user1_likes, user1_reports, user2_likes, user2_reports)
 		VALUES(DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
 
 	chatBytes, err := json.Marshal(r.Messages)
@@ -93,7 +108,7 @@ func (r *Room) SaveMessages(secret string) error {
 	// Check if messages empty too
 // TODO: Changed liked from bool to string, and add it to like
 	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, r.ID, encryptedMsgs, r.Messages[0].Timestamp,
-		time.Now().UTC(), "user1_liked", r.Results[0].Reported, "user2_liked", r.Results[1].Reported); err != nil {
+		time.Now().UTC(), pq.Array([]string{"user1_liked"}), pq.Array([]string{"user1_reported"}), pq.Array([]string{"user2_liked"}), pq.Array([]string{"user2_reported"})); err != nil {
 		return herrors.Wrap(err)
 	}
 
@@ -644,7 +659,7 @@ func IsAllRoomUsersDisconnected(uuid string) (bool, error) {
 	return disconnected, nil
 }
 
-func SetRoomLike(roomuuid, useruuid string, liked bool) error {
+func SetRoomLikes(roomuuid, useruuid string, likes []LikeReason) error {
 	matcherMutex.Lock()
 	defer matcherMutex.Unlock()
 
@@ -662,7 +677,7 @@ func SetRoomLike(roomuuid, useruuid string, liked bool) error {
 			continue
 		}
 
-		room.Results[k].Liked = liked
+		room.Results[k].Likes = likes
 	}
 
 	// Set like in DB
@@ -671,15 +686,21 @@ func SetRoomLike(roomuuid, useruuid string, liked bool) error {
 		user = "user2"
 	}
 
-	q := fmt.Sprintf(`UPDATE chats SET %[1]s_liked = $1 WHERE room = $2;`, user)
-	if _, err := db.Instance.Exec(q, liked, roomuuid); err != nil {
+	likeStrings := []string{}
+
+	for _, like := range likes {
+		likeStrings = append(likeStrings, string(like))
+	}
+
+	q := fmt.Sprintf(`UPDATE chats SET %[1]s_likes = $1 WHERE room = $2;`, user)
+	if _, err := db.Instance.Exec(q, pq.Array(likeStrings), roomuuid); err != nil {
 		return herrors.Wrap(err)
 	}
 
 	return nil
 }
 
-func SetRoomReport(roomuuid, useruuid string, reason ReportReason) error {
+func SetRoomReports(roomuuid, useruuid string, reports []ReportReason) error {
 	matcherMutex.Lock()
 	defer matcherMutex.Unlock()
 
@@ -697,17 +718,17 @@ func SetRoomReport(roomuuid, useruuid string, reason ReportReason) error {
 			continue
 		}
 
-		room.Results[k].Reported = reason
+		room.Results[k].Reports = reports
 	}
 
-	// Set report in DB
+	// Set reports in DB
 	user := "user1"
 	if useruuid == room.Users[1].UUID {
 		user = "user2"
 	}
 
-	q := fmt.Sprintf(`UPDATE chats SET %[1]s_report = $1 WHERE room = $2;`, user)
-	if _, err := db.Instance.Exec(q, reason, roomuuid); err != nil {
+	q := fmt.Sprintf(`UPDATE chats SET %[1]s_reports = $1 WHERE room = $2;`, user)
+	if _, err := db.Instance.Exec(q, pq.Array(reports), roomuuid); err != nil {
 		return herrors.Wrap(err)
 	}
 	return nil
