@@ -45,9 +45,22 @@ func Result(secret string) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// This is done because if we pull the data from the DB field, even if it's text[], it will still send as ´nil´over JSON
+		// This makes sure JSON has an empty array instead, which simplifies things
+		likes := []socket.LikeReason{}
+		reports := []socket.ReportReason{}
+
+		if userResult.Likes != nil {
+			likes = userResult.Likes
+		}
+
+		if userResult.Reports != nil {
+			reports = userResult.Reports
+		}
+
 		o := socket.Result {
-			Likes: userResult.Likes,
-			Reports: userResult.Reports,
+			Likes: likes,
+			Reports: reports,
 		}
 
 		responseJSONObject(ctx, w, o)

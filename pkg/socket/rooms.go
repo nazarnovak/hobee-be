@@ -108,7 +108,7 @@ func (r *Room) SaveMessages(secret string) error {
 	// Check if messages empty too
 // TODO: Changed liked from bool to string, and add it to like
 	if _, err := db.Instance.Exec(q, r.Users[0].UUID, r.Users[1].UUID, r.ID, encryptedMsgs, r.Messages[0].Timestamp,
-		time.Now().UTC(), pq.Array([]string{"user1_liked"}), pq.Array([]string{"user1_reported"}), pq.Array([]string{"user2_liked"}), pq.Array([]string{"user2_reported"})); err != nil {
+		time.Now().UTC(), pq.Array([]string{}), pq.Array([]string{}), pq.Array([]string{}), pq.Array([]string{})); err != nil {
 		return herrors.Wrap(err)
 	}
 
