@@ -40,13 +40,13 @@ type LikeReason string
 
 var (
 	likeReasonPositive      LikeReason = "lpo"
-	likeReasonUnderstanding LikeReason = "lun"
+	likeReasonInteresting LikeReason = "lin"
 	likeReasonFunny    LikeReason = "lfu"
 	likeReasonSmart       LikeReason = "lsm"
 	likeReasonHelpful       LikeReason = "lhe"
 	likeReasonGreat    LikeReason = "lgr"
 
-	allLikeReasons = []LikeReason{likeReasonPositive, likeReasonUnderstanding, likeReasonFunny, likeReasonSmart, likeReasonHelpful, likeReasonGreat}
+	allLikeReasons = []LikeReason{likeReasonPositive, likeReasonInteresting, likeReasonFunny, likeReasonSmart, likeReasonHelpful, likeReasonGreat}
 )
 
 type Room struct {
