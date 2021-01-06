@@ -250,11 +250,14 @@ func (u *User) Close(ctx context.Context, s *Socket) {
 	// If this is the last socket of the user - set a user inactive event in the room
 	if len(u.Sockets) == 0 {
 		// TODO: This removes user when they go into search and then close all tabs. Maybe worth leaving for now
-		//u.Status = statusDisconnected
-		//searchRemove(u.UUID)
-		if u.RoomUUID != "" {
-			u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
-		}
+		u.Status = statusDisconnected
+		searchRemove(u.UUID)
+
+		// TODO: This is old code, that will just mark you as inactive in the room, instead of deleting you from the search pool.
+		// I think this is bad UX for the other user, when they match you and you're offline, so I removed it for now
+		// if u.RoomUUID != "" {
+		// 	u.Broadcast <- Broadcast{UUID: u.UUID, Type: MessageTypeActivity, Text: []byte(ActivityUserInactive)}
+		// }
 	}
 
 	// Close the actual websocket
